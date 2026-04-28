@@ -101,20 +101,21 @@ export const UsersView = () => {
   };
   
   // To avoid breaking the UI, we map the DB profiles to the format expected by the view.
-  // In a real scenario, sales and hours would come from a complex query or function,
-  // but for now we provide a fallback.
-  const users = profiles.map(p => ({
-    id: p.id,
-    name: p.full_name,
-    role: p.role === 'admin' ? 'Admin' : 'Operador',
-    score: p.score ?? 5.0,
-    shift: p.shift ?? 'Integral',
-    avatar: p.avatar_url?.startsWith('http') 
-      ? p.avatar_url 
-      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.avatar_url || p.full_name}${p.full_name === "Raul Seixas" ? "&skinColor=9e5622" : ""}`,
-    status: p.status === 'online' ? 'ONLINE' : 'OFFLINE',
-    raw: p
-  }));
+  // We filter out 'Carol Silva' as requested to keep her hidden from this specific view.
+  const users = profiles
+    .filter(p => p.full_name !== 'Carol Silva')
+    .map(p => ({
+      id: p.id,
+      name: p.full_name,
+      role: p.role === 'admin' ? 'Admin' : 'Operador',
+      score: p.score ?? 5.0,
+      shift: p.shift ?? 'Integral',
+      avatar: p.avatar_url?.startsWith('http') 
+        ? p.avatar_url 
+        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.avatar_url || p.full_name}${p.full_name === "Raul Seixas" ? "&skinColor=9e5622" : ""}`,
+      status: p.status === 'online' ? 'ONLINE' : 'OFFLINE',
+      raw: p
+    }));
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +171,7 @@ export const UsersView = () => {
           <div className="absolute top-0 right-0 p-2 opacity-10">
             <UsersIcon className="h-10 w-10 text-primary" />
           </div>
-          <div className="text-3xl font-black text-white tracking-tighter text-glow-cyan">{users.filter(u => u.status === 'ONLINE').length.toString().padStart(2, '0')}</div>
+          <div className="text-3xl font-black text-white tracking-tighter text-glow-cyan">{users.length.toString().padStart(2, '0')}</div>
           <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Membros Ativos</div>
         </motion.div>
         <motion.div
@@ -203,65 +204,81 @@ export const UsersView = () => {
               key={user.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -4, scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               transition={{ delay: idx * 0.05 }}
-              className="group bg-black-piano neon-blue-border-thin hover:neon-blue-border relative flex items-center gap-4 rounded-[2rem] p-4 shadow-xl transition-all"
+              className="group bg-black-piano neon-blue-border-thin hover:neon-blue-border relative flex flex-col rounded-[1.8rem] shadow-xl transition-all overflow-hidden cursor-pointer"
             >
-              <div className="relative shrink-0">
-                <div className="h-14 w-14 overflow-hidden rounded-2xl border border-white/10 group-hover:border-primary/50 transition-all shadow-xl">
-                  <img src={user.avatar} alt={user.name} className="h-full w-full bg-[#1a1c1e] object-cover" />
-                </div>
-                <div className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-black ${user.status === 'ONLINE' ? 'bg-success shadow-glow-success' : 'bg-danger shadow-glow-danger'}`} />
-              </div>
-              <div className="flex-1 min-w-0">
+              {/* Card Header: Name & Role - Tactical Identification Bar */}
+              <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-white/[0.05] to-transparent px-5 py-3">
+                <h3 className="truncate text-[11px] font-black uppercase tracking-[0.25em] text-white group-hover:text-primary group-hover:text-glow-cyan transition-all">
+                  {user.name}
+                </h3>
                 <div className="flex items-center gap-2">
-                  <h3 className="truncate text-base font-black text-white group-hover:text-primary transition-colors tracking-tight">{user.name}</h3>
-                  <span className="font-mono-tactical shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-primary/60 ring-1 ring-primary/20">
+                  <span className="font-mono-tactical shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-primary/80 ring-1 ring-primary/20 shadow-glow-cyan/20">
                     {user.role}
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-3">
-                  <div className="flex items-center gap-1 font-mono-tactical text-[9px] font-black uppercase tracking-widest text-white/30">
-                    <Award className="h-3 w-3 text-success/60" />
-                    <span>{user.score.toFixed(1)}</span>
+              </div>
+
+              {/* Card Body: Avatar, Stats & Actions */}
+              <div className="flex items-center gap-4 p-4">
+                {/* Avatar Section */}
+                <div className="relative shrink-0">
+                  <div className="h-14 w-14 overflow-hidden rounded-2xl border border-white/10 group-hover:border-primary/50 transition-all shadow-xl">
+                    <img src={user.avatar} alt={user.name} className="h-full w-full bg-[#1a1c1e] object-cover" />
                   </div>
-                  <div className="flex items-center gap-1 font-mono-tactical text-[9px] font-black uppercase tracking-widest text-white/30">
-                    <Clock className="h-3 w-3 text-primary/40" />
-                    <span>{user.shift.toUpperCase()}</span>
+                  <div className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-black ${user.status === 'ONLINE' ? 'bg-success shadow-glow-success' : 'bg-danger shadow-glow-danger'}`} />
+                </div>
+
+                {/* Stats Section */}
+                <div className="flex-1 flex flex-col gap-2.5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5 font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/50">
+                      <Award className="h-3.5 w-3.5 text-success" />
+                      <span className="text-white/80">{user.score.toFixed(1)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/50">
+                      <Clock className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-white/80">{user.shift.toUpperCase()}</span>
+                    </div>
                   </div>
+
+                  {/* Action Buttons: Moved to a dedicated row within the card content area */}
+                  {currentUserRole === 'admin' && (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingProfile(user.raw);
+                          setTempScore(user.score);
+                          setTempShift(user.shift);
+                          setIsEditOpen(true);
+                        }}
+                        className="bg-primary/10 text-primary rounded-xl p-2 hover:bg-primary hover:text-black transition-all border border-primary/20"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => handleRoleToggle(user.id, user.role)}
+                        title={user.role === 'Admin' ? "Remover Admin" : "Tornar Admin"}
+                        className={`rounded-xl p-2 transition-all border ${user.role === 'Admin' ? 'bg-ai/10 text-ai hover:bg-ai hover:text-black border-ai/20' : 'bg-primary/10 text-primary hover:bg-primary hover:text-black border-primary/20'}`}
+                      >
+                        {user.role === 'Admin' ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm(`Remover ${user.name} do squad?`)) {
+                            removeProfile(user.id);
+                          }
+                        }}
+                        className="bg-danger/10 text-danger rounded-xl p-2 hover:bg-danger hover:text-black transition-all border border-danger/20"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              {currentUserRole === 'admin' && (
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => {
-                      setEditingProfile(user.raw);
-                      setTempScore(user.score);
-                      setTempShift(user.shift);
-                      setIsEditOpen(true);
-                    }}
-                    className="bg-primary/10 text-primary rounded-xl p-2.5 hover:bg-primary hover:text-black transition-all"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleRoleToggle(user.id, user.role)}
-                    title={user.role === 'Admin' ? "Remover Admin" : "Tornar Admin"}
-                    className={`rounded-xl p-2.5 transition-all ${user.role === 'Admin' ? 'bg-ai/10 text-ai hover:bg-ai hover:text-black' : 'bg-primary/10 text-primary hover:bg-primary hover:text-black'}`}
-                  >
-                    {user.role === 'Admin' ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (window.confirm("Remover este membro do squad?")) {
-                        removeProfile(user.id);
-                      }
-                    }}
-                    className="bg-danger/10 text-danger rounded-xl p-2.5 hover:bg-danger hover:text-black transition-all"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
             </motion.div>
           ))}
         </div>

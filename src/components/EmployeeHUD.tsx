@@ -32,17 +32,16 @@ export const EmployeeHUD = () => {
     { label: "Saídas", value: myMovementsToday.filter(m => m.type === 'out').length.toString(), color: "text-danger" },
   ];
 
-  const handleSubmit = async (productName: string, imei: string, qty: number = 1) => {
+  const handleSubmit = async (productName: string, identifier: string, qty: number = 1) => {
     if (!action || !currentUser) return;
     
     const toastId = toast.loading(`Processando ${qty} unidades...`);
     try {
       if (action === "in") {
-        // If it's a new entry, we use addProduct which handles batching and movements
         await addProduct({
           name: productName,
-          sku: imei, // Fallback to imei if no sku
-          imei: imei.trim() || null,
+          sku: identifier,
+          imei: identifier.trim() || null,
           quantity: qty,
           status: 'in_stock',
           brand: "Geral",
@@ -53,24 +52,48 @@ export const EmployeeHUD = () => {
           image_url: "" 
         });
       } else {
-        // For "OUT", we find products by IMEI/SKU or by Name if IMEI is empty
-        const targets = products.filter(p => {
-          if (p.status !== 'in_stock') return false;
+        // --- LÓGICA DE SAÍDA TÁTICA (MODO TANTO FAZ) ---
+        const normInput = identifier?.trim() || "";
+        const normName = productName?.trim().toLowerCase() || "";
+
+        let potentialTargets = products.filter(p => p.status === 'in_stock');
+
+        // 1. Filtrar por Identificador (Se houver bip)
+        if (normInput) {
+          potentialTargets = potentialTargets.filter(p => 
+            p.imei === normInput || p.sku === normInput
+          );
+        }
+
+        // 2. Filtrar por Nome (Se houver nome ou se a busca por código falhou)
+        // Se a busca por SKU/IMEI não retornou nada, tentamos pelo nome para permitir o "Zerar Estoque"
+        if (potentialTargets.length === 0 && normName) {
+          potentialTargets = products.filter(p => 
+            p.status === 'in_stock' && 
+            (p.name || "").toLowerCase().includes(normName)
+          );
+        } else if (normName && !normInput) {
+           // Se só tem o nome, filtra direto
+           potentialTargets = potentialTargets.filter(p => 
+            (p.name || "").toLowerCase().includes(normName)
+          );
+        }
+
+        // ORDENAÇÃO INTELIGENTE (MODO TANTO FAZ): 
+        // Prioriza itens SEM IMEI, mas se acabar, pega os COM IMEI para zerar o estoque.
+        const targets = potentialTargets.sort((a, b) => {
+          const aHasRealImei = a.imei && a.imei !== "N/A" && a.imei !== a.sku;
+          const bHasRealImei = b.imei && b.imei !== "N/A" && b.imei !== b.sku;
           
-          if (imei && imei.trim()) {
-            const imeiClean = imei.trim();
-            return p.imei === imeiClean || p.sku === imeiClean;
-          }
-          
-          const nameInput = productName.trim().toLowerCase();
-          const nameRecord = (p.name || "").trim().toLowerCase();
-          return nameRecord === nameInput;
+          if (!aHasRealImei && bHasRealImei) return -1; 
+          if (aHasRealImei && !bHasRealImei) return 1;  
+          return 0;
         }).slice(0, qty);
         
         if (targets.length === 0) {
-          toast.error("Produto não encontrado no estoque para saída", { 
+          toast.error("Produto não localizado", { 
             id: toastId,
-            description: "Verifique se o nome está correto ou se há unidades em estoque."
+            description: `Não há unidades de "${normInput || normName}" disponíveis para saída.`
           });
           return;
         }
@@ -81,13 +104,14 @@ export const EmployeeHUD = () => {
             product_id: p.id,
             operator_id: currentUser.id,
             type: 'out',
-            notes: `Saída: ${productName} (${targets.indexOf(p) + 1}/${targets.length})`
+            notes: `Saída: ${p.name}${p.imei && p.imei !== p.sku ? ` (IMEI: ${p.imei})` : " (S/ IMEI)"}`
           });
         }
       }
 
       setAction(null);
-      toast.success("Operação concluída com sucesso!", { id: toastId });
+      setScannedImei("");
+      toast.success("Operação concluída!", { id: toastId });
     } catch (err) {
       console.error(err);
       toast.error("Erro na operação", { id: toastId });
@@ -363,10 +387,10 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
       const found = products.find(p => p.imei === initialImei || p.sku === initialImei);
       if (found) {
         setProduct(found.name);
-        // If identified by SKU, keep imei field empty for the actual IMEI scan. 
-        // If identified by IMEI, fill the imei field.
-        if (found.imei !== initialImei && found.sku === initialImei) {
-          setImei(""); 
+        // TACTICAL FIX: If identified by SKU, we store it but allow imei field to be empty for new entry
+        // On Stock Out, we MUST ensure the identifier reaches the handleSubmit
+        if (found.sku === initialImei && found.imei !== initialImei) {
+          setImei(""); // Clear for visual UI, but initialImei is still in the parent state
         } else {
           setImei(initialImei);
         }
@@ -529,6 +553,19 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
             </div>
           </Field>
 
+          {/* Unit Preview - Visibility for 'Zeroing' Stock */}
+          {!isIn && product && (
+            <div className="rounded-2xl bg-white/[0.02] p-4 ring-1 ring-white/5 border border-white/5">
+              <div className="font-mono-tactical mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/20">STATUS DO INVENTÁRIO</div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white/60">Disponíveis para este modelo:</span>
+                <span className="font-mono-tactical text-xs font-black text-primary">
+                  {products.filter(p => p.status === 'in_stock' && (p.name || "").toLowerCase().includes(product.toLowerCase())).length} UN
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={onClose}
@@ -538,7 +575,7 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
             </button>
             <motion.button
               whileTap={{ scale: 0.96 }}
-              onClick={() => onSubmit(product, showImei2 ? `${imei} / ${imei2}` : imei, parseInt(quantity) || 1)}
+              onClick={() => onSubmit(product, imei || initialImei || "", parseInt(quantity) || 1)}
               className={`btn-tactical flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold ${
                 isIn
                   ? "bg-success text-success-foreground shadow-glow-success"

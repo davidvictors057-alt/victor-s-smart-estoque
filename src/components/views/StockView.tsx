@@ -5,6 +5,7 @@ import { CameraView } from "@/components/CameraView";
 import { toast } from "sonner";
 
 import { useStore } from "@/store/useStore";
+import { CatalogExport } from "@/components/CatalogExport";
 
 export const StockView = () => {
   const [query, setQuery] = useState("");
@@ -70,6 +71,9 @@ export const StockView = () => {
         <Plus className="h-5 w-5" />
         ADICIONAR NOVO PRODUTO
       </motion.button>
+
+      {/* Export Module */}
+      <CatalogExport products={filtered} filterQuery={query} />
 
       {/* Stock List Section - Tactical Refinement */}
       <motion.section
