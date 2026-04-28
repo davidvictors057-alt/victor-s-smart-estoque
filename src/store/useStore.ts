@@ -89,6 +89,8 @@ interface AppState {
   setChangePinOpen: (open: boolean) => void;
   manualOpen: boolean;
   setManualOpen: (open: boolean) => void;
+  devOpen: boolean;
+  setDevOpen: (open: boolean) => void;
   isLoading: boolean;
   fetchAppSettings: () => Promise<void>;
   updateAppSetting: (key: string, value: string) => Promise<void>;
@@ -127,6 +129,8 @@ interface AppState {
   sendChatMessage: (msg: string) => Promise<void>;
   getStrategicContext: () => any;
   clearChat: () => void;
+  shoppingListOpen: boolean;
+  setShoppingListOpen: (open: boolean) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -146,6 +150,8 @@ export const useStore = create<AppState>()(
       chatHistory: [],
       setOnlineBrainMode: (mode) => set({ onlineBrainMode: mode }),
       clearChat: () => set({ chatHistory: [] }),
+      shoppingListOpen: false,
+      setShoppingListOpen: (open) => set({ shoppingListOpen: open }),
       notifOpen: false,
       setNotifOpen: (open) => set({ notifOpen: open }),
       supportOpen: false,
@@ -154,6 +160,8 @@ export const useStore = create<AppState>()(
       setChangePinOpen: (open) => set({ changePinOpen: open }),
       manualOpen: false,
       setManualOpen: (open) => set({ manualOpen: open }),
+      devOpen: false,
+      setDevOpen: (open) => set({ devOpen: open }),
       tickets: [],
       isLoading: false,
       currentUser: null,
@@ -392,27 +400,48 @@ export const useStore = create<AppState>()(
       },
 
       purgeSystem: async () => {
+        const { currentUser } = get();
+        if (!currentUser?.client_id) {
+          throw new Error("Identificador do cliente não encontrado.");
+        }
+
         try {
-          await Promise.all([
-            supabase.from('products').delete().neq('id', '0'),
-            supabase.from('movements').delete().neq('id', '0'),
-            supabase.from('notifications').delete().neq('id', '0')
+          // 1. Delete dependencies first (Movements depend on Products)
+          const { error: mError } = await supabase
+            .from('movements')
+            .delete()
+            .eq('client_id', currentUser.client_id);
+          
+          if (mError) throw mError;
+
+          // 2. Delete products and notifications
+          const results = await Promise.all([
+            supabase.from('products').delete().eq('client_id', currentUser.client_id),
+            supabase.from('notifications').delete().eq('client_id', currentUser.client_id),
+            supabase.from('support_tickets').delete().eq('client_id', currentUser.client_id)
           ]);
+
+          const errors = results.filter(r => r.error);
+          if (errors.length > 0) throw errors[0].error;
+
           localStorage.removeItem('victors-smart-storage');
           window.location.reload();
-        } catch (error) { console.error(error); }
+        } catch (error) { 
+          console.error("Purge Error:", error);
+          throw error; // Re-throw to allow UI to catch it
+        }
       },
 
       getChartData: () => {
         const { movements } = get();
         const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-        return Array.from({ length: 7 }).map((_, i) => {
+        return Array.from({ length: 15 }).map((_, i) => {
           const d = new Date();
-          d.setDate(d.getDate() - (6 - i));
+          d.setDate(d.getDate() - (14 - i));
           const dateStr = d.toLocaleDateString();
           const dayMovements = movements.filter(m => new Date(m.timestamp).toLocaleDateString() === dateStr);
           return {
-            name: days[d.getDay()],
+            name: `${d.getDate()}/${d.getMonth() + 1}`,
             in: dayMovements.filter(m => m.type === 'in').length,
             out: dayMovements.filter(m => m.type === 'out').length,
           };

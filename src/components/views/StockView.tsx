@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Boxes, Filter, MoreVertical, Package, Zap, ArrowRight, X, Camera, ChevronRight } from "lucide-react";
+import { Plus, Search, Boxes, Filter, MoreVertical, Package, Zap, ArrowRight, X, Camera, ChevronRight, ScanLine } from "lucide-react";
 import { CameraView } from "@/components/CameraView";
 import { toast } from "sonner";
+import { AIVisionAudit } from "@/components/AIVisionAudit";
 
 import { useStore } from "@/store/useStore";
 import { CatalogExport } from "@/components/CatalogExport";
+import { AIProductInsight } from "@/components/AIProductInsight";
 
 export const StockView = () => {
   const [query, setQuery] = useState("");
@@ -13,6 +15,9 @@ export const StockView = () => {
   const [scanOpen, setScanOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [viewItem, setViewItem] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [insightOpen, setInsightOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
   const { products, deleteProduct, updateProduct } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
@@ -52,10 +57,10 @@ export const StockView = () => {
           className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white/10"
         />
         <button
-          onClick={() => setScanOpen(true)}
+          onClick={() => setAuditOpen(true)}
           className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-primary hover:bg-white/10 transition-all"
         >
-          <Filter className="h-4 w-4" />
+          <ScanLine className="h-4 w-4" />
         </button>
       </motion.div>
 
@@ -100,8 +105,15 @@ export const StockView = () => {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="group flex items-center gap-3 rounded-2xl bg-white/[0.02] p-3 ring-1 ring-white/5 hover:bg-white/[0.05] transition-all cursor-pointer"
-                onClick={() => setViewItem(it)}
+                className={`group flex items-center gap-3 rounded-2xl p-3 ring-1 transition-all cursor-pointer ${
+                  it.stock <= 1 
+                    ? "bg-danger/10 ring-danger/30 hover:bg-danger/20" 
+                    : "bg-white/[0.02] ring-white/5 hover:bg-white/[0.05]"
+                }`}
+                onClick={() => {
+                  setSelectedProduct(it);
+                  setInsightOpen(true);
+                }}
               >
                 {/* Imagem Compacta */}
                 <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black border border-white/5">
@@ -119,11 +131,25 @@ export const StockView = () => {
                   </div>
                 </div>
 
-                {/* Status e Preço (Alinhado à Direita) */}
                 <div className="flex flex-col items-end gap-1 px-2 border-r border-white/5 min-w-[70px]">
-                  <span className={`font-mono-tactical text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${isLow ? "bg-danger text-white shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "text-success"}`}>
-                    {it.stock} UN
+                  <span className={`font-mono-tactical text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                    it.stock === 1 
+                      ? "bg-danger text-white shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse" 
+                      : it.stock <= 5 
+                        ? "bg-danger/50 text-white" 
+                        : "text-success"
+                  }`}>
+                    {it.stock === 1 ? "CRÍTICO" : `${it.stock} UN`}
                   </span>
+                  {(() => {
+                    const lastUpdate = new Date(it.updated_at || Date.now());
+                    const diffDays = Math.ceil((new Date().getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24));
+                    return diffDays >= 30 ? (
+                      <span className="font-mono-tactical text-[7px] font-black uppercase px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                        FRIO ({diffDays}D)
+                      </span>
+                    ) : null;
+                  })()}
                   <span className="font-mono-tactical text-[10px] font-black text-white/40">
                     R${it.sale}
                   </span>
@@ -192,6 +218,16 @@ export const StockView = () => {
           />
         )}
       </AnimatePresence>
+
+      <AIProductInsight 
+        product={selectedProduct}
+        isOpen={insightOpen}
+        onClose={() => setInsightOpen(false)}
+      />
+      <AIVisionAudit 
+        isOpen={auditOpen} 
+        onClose={() => setAuditOpen(false)} 
+      />
       <CameraView 
         open={camOpen} 
         onClose={() => setCamOpen(false)} 

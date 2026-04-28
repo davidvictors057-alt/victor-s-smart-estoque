@@ -179,7 +179,7 @@ export const CameraView = ({
             {/* tactical overlay */}
             <div className="pointer-events-none absolute inset-0">
               <div className="tactical-corner absolute inset-8 rounded-2xl" />
-              {mode === "scan" && (
+              {(mode === "scan" || title.includes("IA")) && (
                 <>
                   <div className="absolute left-1/2 top-1/2 h-48 w-72 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-primary/70 shadow-glow-cyan" />
                   <div className="absolute left-1/2 top-1/2 h-48 w-72 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl">

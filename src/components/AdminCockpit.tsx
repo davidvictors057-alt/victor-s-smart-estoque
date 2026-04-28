@@ -23,14 +23,20 @@ import {
   Sparkles,
   AlertTriangle,
   Activity,
-  Target,
   Zap,
   LayoutDashboard,
   Check,
   Camera,
   Info,
+  Package,
+  ShoppingCart,
+  Users,
+  Eye,
 } from "lucide-react";
 import { CameraView } from "./CameraView";
+import { AIProductInsight } from './AIProductInsight';
+import { PredictiveShoppingList } from './PredictiveShoppingList';
+import { Button } from "./ui/button";
 
 import { useStore } from "@/store/useStore";
 
@@ -50,10 +56,14 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
     lastAiAnalysis,
     isAiLoading,
     onlineBrainMode,
-    runPredictiveAnalysis
+    runPredictiveAnalysis,
+    currentUser
   } = useStore();
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [shoppingListOpen, setShoppingListOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tooltipMetric, setTooltipMetric] = useState<string | null>(null);
 
@@ -127,6 +137,20 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const recentSalesCount = salesMovements.filter(m => new Date(m.timestamp) > thirtyDaysAgo).length;
   const inStockCount = inStockProducts.length;
   const giroMedio = inStockCount > 0 ? recentSalesCount / inStockCount : 0;
+  
+  const ruptureItems = Array.from(new Set(inStockProducts.map(p => p.name)))
+    .filter(name => inStockProducts.filter(p => p.name === name).length <= 1);
+
+  const coldStockCount = inStockProducts.filter(p => {
+    const lastUpdate = new Date(p.updated_at || Date.now());
+    const diffDays = Math.ceil((new Date().getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24));
+    return diffDays >= 30;
+  }).length;
+
+  const profiles = Array.from(new Set(movements.map(m => m.operator_id))).map(id => {
+    const m = movements.find(mv => mv.operator_id === id);
+    return { id, full_name: m?.operator?.full_name || "Operador" };
+  });
 
   return (
     <div className="space-y-6 px-2 sm:px-4 pb-24">
@@ -134,23 +158,36 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
       <motion.header
         {...cascade(0)}
         whileHover={{ scale: 1.01, y: -2 }}
-        className="bg-black-piano neon-blue-border flex items-center justify-between rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,163,255,0.2)]"
+        className="bg-black-piano neon-blue-border flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-3xl p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,163,255,0.2)] gap-4"
       >
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-black shadow-[0_0_25px_rgba(0,163,255,0.8)]">
-            <LayoutDashboard className="h-8 w-8" />
+          <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-primary text-black shadow-glow-cyan shrink-0">
+            <LayoutDashboard className="h-6 w-6 sm:h-8 sm:w-8" />
           </div>
-          <div>
-            <div className="font-mono-tactical text-[12px] font-black uppercase tracking-[0.5em] text-primary">
+          <div className="min-w-0">
+            <div className="font-mono-tactical text-[10px] sm:text-[12px] font-black uppercase tracking-[0.4em] text-primary truncate">
               ADMIN COCKPIT
             </div>
-            <div className="text-2xl font-black text-white tracking-tighter">Terminal de Comando</div>
+            <div className="text-xl sm:text-2xl font-black text-white tracking-tighter truncate">Terminal de Comando</div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={() => onNavigate?.("ai_vision")}
+            className="flex-1 sm:flex-none h-11 px-4 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary transition-all hover:bg-primary hover:text-black shadow-glow-cyan gap-2"
+          >
+            <Camera className="h-4 w-4" />
+            <span className="font-mono-tactical text-[9px] font-black uppercase tracking-widest hidden sm:block">AUDITORIA IA</span>
+          </button>
+          <button 
+            onClick={() => setShoppingListOpen(true)}
+            className="h-11 w-11 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-white transition-all hover:bg-white/10 shrink-0"
+          >
+            <ShoppingCart className="h-4 w-4" />
+          </button>
           <button 
             onClick={handleRefresh}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/40 transition-all hover:bg-white/10 hover:text-white ${isRefreshing ? 'animate-spin' : ''}`}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-white/40 transition-all hover:bg-white/10 hover:text-white shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
           >
             <ArrowLeftRight className="h-5 w-5 rotate-90" />
           </button>
@@ -268,7 +305,58 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </motion.section>
       
-      {/* 🧠 AI PREDICTIVE ANALYSIS SECTION */}
+      {/* ⚠️ CRITICAL ALERTS: Ruptura Zero */}
+      <AnimatePresence>
+        {ruptureItems.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-danger/10 neon-danger-border rounded-[2rem] p-5 border border-danger/30 shadow-[0_0_30px_rgba(239,68,68,0.2)]"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="relative h-12 w-12 flex items-center justify-center rounded-2xl bg-danger/20 border border-danger/30">
+                  <Package className="h-6 w-6 text-danger animate-pulse" />
+                  <div className="absolute -top-1 -right-1 h-4 w-4 bg-danger rounded-full flex items-center justify-center border-2 border-[#0f172a]">
+                    <span className="text-[8px] font-black text-white">{ruptureItems.length}</span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tighter">Ruptura Zero</h3>
+                  <p className="text-[10px] text-danger font-black uppercase tracking-widest opacity-80">Ação imediata requerida</p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => setShoppingListOpen(true)}
+                className="h-10 px-4 bg-danger/10 hover:bg-danger/20 border border-danger/20 text-danger rounded-xl text-[10px] font-black uppercase tracking-widest gap-2"
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                Gerar Lista
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              {ruptureItems.slice(0, 3).map(name => (
+                  <div key={name} className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
+                    <span className="text-sm font-bold text-white/80">{name}</span>
+                    <Button 
+                      size="sm" 
+                      className="bg-success hover:bg-success/80 h-7 text-[9px] font-black rounded-lg"
+                      onClick={() => {
+                        const text = `🚨 ALERTA RUPTURA ZERO: O item *${name}* está com apenas 1 unidade no estoque. Sugiro reposição imediata.`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                    >
+                      AVISAR PATRÃO
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
       <motion.section
         {...cascade(1.2)}
         className="bg-black-piano neon-purple-border rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden"
@@ -344,9 +432,9 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         <div className="mb-6 flex items-center justify-between">
           <div>
             <div className="font-mono-tactical text-[11px] font-black uppercase tracking-[0.4em] text-primary/70">
-              DESEMPENHO SEMANAL
+              FLUXO TÁTICO (15 DIAS)
             </div>
-            <div className="text-lg font-black text-white tracking-tight">Fluxo de Movimentação</div>
+            <div className="text-lg font-black text-white tracking-tight">Entradas vs Saídas</div>
           </div>
           <div className="flex gap-4">
             <div className="flex items-center gap-2">
@@ -392,22 +480,31 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </motion.section>
 
-      {/* Mini KPIs */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-4">
         <KPICard
           {...cascade(2)}
           icon={Boxes}
-          label="UN EM ESTOQUE"
-          value={inStockProducts.length.toString()}
-          deltaValue={products.length > 0 ? (inStockProducts.length / products.length) * 100 : 0}
-          deltaLabel={products.length > 0 ? `${((inStockProducts.length / products.length) * 100).toFixed(0)}%` : "0%"}
+          label="ESTOQUE FRIO (>30 DIAS)"
+          value={coldStockCount.toString()}
+          deltaValue={coldStockCount}
+          deltaLabel={`${((coldStockCount / (inStockProducts.length || 1)) * 100).toFixed(0)}%`}
           tone="cyan"
           onClick={() => onNavigate?.("stock")}
         />
         <KPICard
           {...cascade(3)}
+          icon={Eye}
+          label="AUDITORIA VISUAL (IA VISION)"
+          value="ATIVO"
+          deltaLabel="SISTEMA"
+          deltaValue={1}
+          tone="ai"
+          onClick={() => onNavigate?.("ai_vision")}
+        />
+        <KPICard
+          {...cascade(4)}
           icon={ArrowLeftRight}
-          label="ITENS HOJE (TOTAL)"
+          label="AÇÕES PROCESSADAS HOJE"
           value={todayProcessed.length.toString()}
           deltaValue={growth}
           deltaLabel={growth !== 0 ? `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%` : "0%"}
@@ -416,64 +513,78 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         />
       </div>
 
-      {/* AI Insight Card - Re-Styled in DEEP PURPLE */}
+      {/* 🚀 TEAM PERFORMANCE VISUALIZATION */}
       <motion.section
         {...cascade(4)}
-        whileHover={{ y: -5, scale: 1.01 }}
-        className="bg-black-piano neon-purple-border relative overflow-hidden rounded-[2.5rem] p-5 sm:p-8 shadow-[0_25px_50px_rgba(168,85,247,0.2)] border-l-[5px] border-l-ai"
+        className="bg-black-piano neon-cyan-border rounded-[2.5rem] p-6 border border-white/5 shadow-2xl"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-ai/20 via-transparent to-transparent opacity-40" />
-        <div className="relative">
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ai/30 shadow-[0_0_30px_rgba(168,85,247,0.6)] ring-2 ring-ai/50">
-                <Sparkles className="h-6 w-6 text-ai" />
-              </div>
-              <div>
-                <div className="font-mono-tactical text-[11px] font-black uppercase tracking-[0.4em] text-ai/80">
-                  INTELIGÊNCIA ARTIFICIAL
-                </div>
-                <div className="text-xl font-black text-white tracking-tight">Análise Preditiva</div>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[140px] rounded-2xl bg-ai/20 px-4 py-2 ring-2 ring-ai/50 shadow-lg text-center">
-                <span className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-ai">
-                  PRECISÃO · {movements.length > 0 ? "94%" : "—"}
-                </span>
-              </div>
-              <button 
-                onClick={() => onNavigate?.("ai")}
-                className="flex-1 min-w-[140px] rounded-2xl bg-ai text-black px-4 py-2 text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all"
-              >
-                ATIVAR CÉREBRO
-              </button>
-            </div>
-
-            {inStockProducts.length > 0 ? (
-              <div className="mt-8 space-y-4">
-                <div className="flex items-start gap-5 rounded-3xl bg-white/[0.03] p-5 ring-1 ring-white/10 hover:bg-white/[0.06] transition-all hover:ring-ai/40">
-                  <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-ai" />
-                  <div>
-                    <div className="text-base font-black text-white">
-                      Análise em espera · aguardando <span className="text-ai text-glow-ai">novos dados</span>
-                    </div>
-                    <p className="mt-1.5 text-sm font-medium leading-relaxed text-white/40">
-                      O sistema precisa de movimentações reais para projetar demanda.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-8 flex items-center justify-center p-10 border-2 border-dashed border-white/5 rounded-[2rem]">
-                 <div className="text-center">
-                    <Activity className="h-8 w-8 text-white/10 mx-auto mb-3" />
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Aguardando Sincronia de Inventário</p>
-                 </div>
-              </div>
-            )}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400">
+            <Users className="h-6 w-6" />
           </div>
+          <div>
+            <div className="font-mono-tactical text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">PERFORMANCE DE EQUIPE</div>
+            <div className="text-lg font-black text-white">Top Operadores</div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {profiles.slice(0, 3).map((profile, idx) => {
+            const userMoves = movements.filter(m => m.operator_id === profile.id).length;
+            const maxMoves = Math.max(...profiles.map(p => movements.filter(m => m.operator_id === p.id).length), 1);
+            const percentage = (userMoves / maxMoves) * 100;
+            
+            return (
+              <div key={profile.id} className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-white/30">0{idx + 1}</span>
+                    <span className="text-sm font-bold text-white/90">{profile.full_name.split(' ')[0]}</span>
+                  </div>
+                  <span className="text-[10px] font-black text-cyan-400">{userMoves} AÇÕES</span>
+                </div>
+                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percentage}%` }}
+                    className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </motion.section>
+
+      {/* AI Insight Card - Oráculo Interno Style */}
+      <motion.section
+        {...cascade(6)}
+        className="bg-black-piano rounded-[2.5rem] p-6 sm:p-8 border-l-[6px] border-l-ai relative overflow-hidden group shadow-2xl"
+      >
+        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <Sparkles className="h-20 w-20 text-ai" />
+        </div>
+        <div className="relative">
+          <div className="font-mono-tactical text-[10px] font-black uppercase tracking-[0.4em] text-ai/60 mb-2">SISTEMA ORÁCULO OPERACIONAL</div>
+          <h2 className="text-2xl font-black text-white mb-6">Brain de Gestão Ativado</h2>
+          
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+              <div className="text-[9px] font-black text-white/40 uppercase mb-1">Giro Previsto</div>
+              <div className="text-lg font-black text-white">15 DIAS</div>
+            </div>
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+              <div className="text-[9px] font-black text-white/40 uppercase mb-1">Ruptura Zero</div>
+              <div className="text-lg font-black text-success">ATIVO</div>
+            </div>
+          </div>
+
+          <Button 
+            className="w-full bg-ai hover:bg-ai/80 text-black font-black py-6 rounded-2xl shadow-glow-ai text-xs tracking-widest uppercase"
+            onClick={() => onNavigate?.("ai")}
+          >
+            CONSULTAR ESTRATÉGIA
+          </Button>
         </div>
       </motion.section>
 
@@ -613,6 +724,17 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           })}
         </div>
       </motion.section>
+
+      <AIProductInsight 
+        product={selectedProduct} 
+        isOpen={insightOpen} 
+        onClose={() => setInsightOpen(false)} 
+      />
+
+      <PredictiveShoppingList 
+        isOpen={shoppingListOpen} 
+        onClose={() => setShoppingListOpen(false)} 
+      />
 
       <CameraView
         open={cameraOpen}

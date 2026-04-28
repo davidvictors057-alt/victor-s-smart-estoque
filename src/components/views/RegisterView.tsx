@@ -10,9 +10,8 @@ import { useStore } from "@/store/useStore";
 export const RegisterView = () => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState<"imei1" | "imei2" | "name" | null>(null);
+  const [scannerOpen, setScannerOpen] = useState<"imei1" | "imei2" | "name" | "ai_scan" | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [imei, setImei] = useState("");
@@ -21,18 +20,39 @@ export const RegisterView = () => {
   const [cost, setCost] = useState("");
   const [sale, setSale] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [showChoicePopup, setShowChoicePopup] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const { addProduct } = useStore();
 
   const margin = cost && sale ? (((+sale - +cost) / +cost) * 100).toFixed(1) : "—";
 
-  // Simulate AI Background Removal
-  useEffect(() => {
-    if (photo) {
-      setIsProcessing(true);
-      const timer = setTimeout(() => setIsProcessing(false), 1500);
-      return () => clearTimeout(timer);
+  // Tactical AI Auto-Fill Helper
+  const processAiPhoto = async (base64Photo: string) => {
+    setIsAiProcessing(true);
+    const toastId = toast.loading("IA VISION: Extraindo dados da caixa...");
+    
+    try {
+      const { aiService } = await import('@/services/aiService');
+      const data = await aiService.analyzeProductBox(base64Photo);
+      
+      if (data) {
+        if (data.name) setName(data.name);
+        if (data.sku) setSku(data.sku);
+        if (data.imei1) setImei(data.imei1);
+        if (data.imei2) {
+          setImei2(data.imei2);
+          setShowImei2(true);
+        }
+        toast.success("IA VISION: Campos preenchidos!", { id: toastId });
+      }
+    } catch (error) {
+      console.error("AI Error:", error);
+      toast.error("IA VISION Falhou. Use o bip manual.", { id: toastId });
+      setScannerOpen("name"); // Fallback automático para bip offline
+    } finally {
+      setIsAiProcessing(false);
     }
-  }, [photo]);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +102,10 @@ export const RegisterView = () => {
   };
 
   const handleScan = (code: string) => {
-    if (scannerOpen === "name") {
+    if (scannerOpen === "ai_scan") {
+      // Se for scan de IA, o 'code' na verdade é o base64 da imagem
+      processAiPhoto(code);
+    } else if (scannerOpen === "name") {
       setSku(code);
     } else if (scannerOpen === "imei1") {
       setImei(code);
@@ -93,7 +116,54 @@ export const RegisterView = () => {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4 px-3 pb-24">
+    <form onSubmit={submit} className="relative space-y-4 px-3 pb-24">
+      {/* Choice Popup */}
+      <AnimatePresence>
+        {showChoicePopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm bg-black-piano border-2 border-primary rounded-3xl p-6 shadow-[0_0_50px_rgba(0,163,255,0.3)]"
+            >
+              <div className="text-center mb-6">
+                <div className="font-mono-tactical text-[10px] text-primary/60 uppercase tracking-widest mb-2">Entrada de Dados</div>
+                <h3 className="text-xl font-black text-white uppercase italic">Modo Offline</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <button 
+                  type="button"
+                  onClick={() => { setScannerOpen("name"); setShowChoicePopup(false); }}
+                  className="w-full flex items-center justify-between bg-primary py-4 px-6 rounded-2xl text-black font-black uppercase tracking-tighter"
+                >
+                  <span>Bipar com Câmera</span>
+                  <Camera className="h-5 w-5" />
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={() => { setManualOpen(true); setShowChoicePopup(false); }}
+                  className="w-full flex items-center justify-between bg-white/10 border border-white/20 py-4 px-6 rounded-2xl text-white font-black uppercase tracking-tighter hover:bg-white/20"
+                >
+                  <span>Digitar Manual</span>
+                  <ScanLine className="h-5 w-5" />
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={() => setShowChoicePopup(false)}
+                  className="w-full py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mt-4"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <motion.header
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -112,7 +182,7 @@ export const RegisterView = () => {
         </div>
         <button 
           type="button"
-          onClick={() => setManualOpen(true)}
+          onClick={() => setShowChoicePopup(true)}
           className="flex h-10 items-center gap-2 rounded-xl bg-white/10 px-4 text-[10px] font-black uppercase tracking-widest text-white/80 border border-white/20 hover:bg-white/20 hover:text-primary transition-all"
         >
           <ScanLine className="h-4 w-4" />
@@ -137,7 +207,7 @@ export const RegisterView = () => {
                 <img 
                   src={photo} 
                   alt="Foto" 
-                  className={`h-full w-full object-cover transition-all duration-1000 ${isProcessing ? 'brightness-150 blur-sm' : 'brightness-110'}`} 
+                  className={`h-full w-full object-cover transition-all duration-1000 ${isAiProcessing ? 'brightness-150 blur-sm' : 'brightness-110'}`} 
                 />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-white/40 group-hover:text-primary transition-all duration-500">
@@ -159,14 +229,14 @@ export const RegisterView = () => {
                 trailing={
                   <button 
                     type="button" 
-                    onClick={() => setScannerOpen("name")} 
+                    onClick={() => setScannerOpen("ai_scan")} 
                     className="absolute inset-y-0 right-0 flex w-12 flex-col items-center justify-center rounded-r-2xl bg-primary text-black shadow-glow-cyan transition-all active:scale-95 active:brightness-125"
                   >
                     <div className="relative">
                       <Camera className="h-4 w-4 stroke-[3]" />
                       <ScanLine className="absolute -bottom-1 -right-1 h-2 w-2 stroke-[4] text-black" />
                     </div>
-                    <span className="font-mono-tactical text-[7px] font-black uppercase">SCAN</span>
+                    <span className="font-mono-tactical text-[7px] font-black uppercase">IA SCAN</span>
                   </button>
                 }
               >
@@ -340,9 +410,15 @@ export const RegisterView = () => {
       <CameraView 
         open={!!scannerOpen} 
         onClose={() => setScannerOpen(null)} 
-        title={`Escanear ${scannerOpen === 'name' ? 'Produto' : 'IMEI'}`} 
-        mode="scan" 
-        onScan={handleScan} 
+        title={scannerOpen === 'ai_scan' ? "Foto para IA Vision" : `Escanear ${scannerOpen === 'name' ? 'Produto' : 'IMEI'}`} 
+        mode={scannerOpen === 'ai_scan' ? "photo" : "scan"} 
+        onScan={handleScan}
+        onCapture={(img) => {
+          if (scannerOpen === 'ai_scan') {
+            processAiPhoto(img);
+            setScannerOpen(null);
+          }
+        }}
       />
 
       <ManualInputModal open={manualOpen} onClose={() => setManualOpen(false)} onConfirm={handleScan} />

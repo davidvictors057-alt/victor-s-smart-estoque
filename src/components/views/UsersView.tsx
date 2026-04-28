@@ -163,7 +163,7 @@ export const UsersView = () => {
       </div>
 
       {/* KPI Cards - Compact & High-Impact */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${currentUser?.role === 'admin' ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <motion.div
           whileHover={{ y: -4 }}
           className="bg-black-piano neon-blue-border flex flex-col items-center justify-center rounded-3xl py-6 shadow-2xl relative overflow-hidden"
@@ -174,22 +174,25 @@ export const UsersView = () => {
           <div className="text-3xl font-black text-white tracking-tighter text-glow-cyan">{users.length.toString().padStart(2, '0')}</div>
           <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Membros Ativos</div>
         </motion.div>
-        <motion.div
-          whileHover={{ y: -4 }}
-          className="bg-black-piano neon-blue-border flex flex-col items-center justify-center rounded-3xl py-6 shadow-2xl relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 p-2 opacity-10">
-            <TrendingUp className="h-10 w-10 text-success" />
-          </div>
-          <div className="text-3xl font-black text-white tracking-tighter text-glow-success">
-            {movements.filter(m => {
-              const d = new Date(m.timestamp);
-              const now = new Date();
-              return m.type === 'out' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-            }).length.toString().padStart(2, '0')}
-          </div>
-          <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Vendas Mês</div>
-        </motion.div>
+
+        {currentUser?.role === 'admin' && (
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="bg-black-piano neon-blue-border flex flex-col items-center justify-center rounded-3xl py-6 shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <TrendingUp className="h-10 w-10 text-success" />
+            </div>
+            <div className="text-3xl font-black text-white tracking-tighter text-glow-success">
+              {movements.filter(m => {
+                const d = new Date(m.timestamp);
+                const now = new Date();
+                return m.type === 'out' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+              }).length.toString().padStart(2, '0')}
+            </div>
+            <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Vendas Mês</div>
+          </motion.div>
+        )}
       </div>
 
       {/* Team List */}

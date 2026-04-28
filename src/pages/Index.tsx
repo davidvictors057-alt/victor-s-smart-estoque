@@ -11,6 +11,8 @@ import { RegisterView } from "@/components/views/RegisterView";
 import { ProfileView } from "@/components/views/ProfileView";
 import { StockView } from "@/components/views/StockView";
 import { UsersView } from "@/components/views/UsersView";
+import { MarketRadarView } from "@/components/views/MarketRadarView";
+import { AIVisionAuditView } from "@/components/views/AIVisionAuditView";
 import { AIView } from "@/components/views/AIView";
 import { ConfigView } from "@/components/views/ConfigView";
 import { SupportTicketsView } from "@/components/views/SupportTicketsView";
@@ -18,11 +20,13 @@ import { SupportModal } from "@/components/SupportModal";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
 import { ChangePinModal } from "@/components/ChangePinModal";
 import { ManualModal } from "@/components/ManualModal";
-import { useStore } from "@/store/useStore";
 import { PWAUpdater } from "@/components/PWAUpdater";
 import { NetworkMonitor } from "@/components/NetworkMonitor";
+import { ConhecendoDesenvolvedor } from "@/components/ConhecendoDesenvolvedor";
+import { useStore } from "@/store/useStore";
 
 const tacticalColors: Record<string, string> = {
+// ...
   cyan: "180 100% 50%",
   emerald: "158 64% 52%",
   ruby: "0 84% 60%",
@@ -54,7 +58,9 @@ const Index = () => {
     changePinOpen, 
     setChangePinOpen,
     manualOpen,
-    setManualOpen
+    setManualOpen,
+    devOpen,
+    setDevOpen
   } = useStore();
 
   useEffect(() => {
@@ -101,6 +107,8 @@ const Index = () => {
     switch (adminTab) {
       case "dashboard": return <AdminCockpit onNavigate={setAdminTab} />;
       case "ai": return <AIView />;
+      case "market_radar": return <MarketRadarView />;
+      case "ai_vision": return <AIVisionAuditView />;
       case "stock": return <StockView />;
       case "moves": return <MovementsView />;
       case "users": return <UsersView />;
@@ -151,6 +159,7 @@ const Index = () => {
       <NotificationsPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       <ChangePinModal open={changePinOpen} onClose={() => setChangePinOpen(false)} />
       <ManualModal open={manualOpen} onClose={() => setManualOpen(false)} />
+      <ConhecendoDesenvolvedor isOpen={devOpen} onClose={() => setDevOpen(false)} />
       <PWAUpdater />
       <NetworkMonitor />
     </main>

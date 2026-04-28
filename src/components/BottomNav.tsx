@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Home, ArrowLeftRight, ClipboardList, User, BarChart3, Boxes, Settings, Brain, Users as UsersIcon, MessageSquare } from "lucide-react";
+import { Home, ArrowLeftRight, ClipboardList, User, BarChart3, Boxes, Settings, Brain, Users as UsersIcon, MessageSquare, Zap, Eye } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useState } from "react";
 
@@ -19,6 +19,8 @@ const employeeTabs: Tab[] = [
 const adminTabs: Tab[] = [
   { id: "dashboard", label: "Home", icon: BarChart3 },
   { id: "ai", label: "IA", icon: Brain },
+  { id: "market_radar", label: "Radar", icon: Zap },
+  { id: "ai_vision", label: "Vision", icon: Eye },
   { id: "stock", label: "Estoque", icon: Boxes },
   { id: "moves", label: "Movs", icon: ArrowLeftRight },
   { id: "users", label: "Equipe", icon: UsersIcon },

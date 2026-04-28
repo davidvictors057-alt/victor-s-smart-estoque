@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { X, LogOut, Settings, HelpCircle, Moon, Bell, Palette, BookOpen, ChevronRight, Fingerprint, RefreshCcw } from "lucide-react";
+import { X, LogOut, Settings, HelpCircle, Moon, Bell, Palette, BookOpen, ChevronRight, Fingerprint, RefreshCcw, GraduationCap } from "lucide-react";
 import { RoleToggle } from "@/components/RoleToggle";
 import { VictorsLogo } from "@/components/VictorsLogo";
 import { useApp } from "@/context/AppContext";
@@ -17,7 +17,7 @@ interface SideMenuProps {
 
 export const SideMenu = ({ open, onClose }: SideMenuProps) => {
   const { setScreen, role, setAdminTab, setEmployeeTab, setProfileTab } = useApp();
-  const { notifications, currentUser, setCurrentUser, setNotifOpen, supportOpen, setSupportOpen, changePinOpen, setChangePinOpen, manualOpen, setManualOpen, lastSync, lastSyncUser, fetchAll } = useStore();
+  const { notifications, currentUser, setCurrentUser, setNotifOpen, supportOpen, setSupportOpen, changePinOpen, setChangePinOpen, manualOpen, setManualOpen, lastSync, lastSyncUser, fetchAll, setDevOpen } = useStore();
   const unreadCount = notifications.filter(n => !n.read).length;
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -193,24 +193,33 @@ export const SideMenu = ({ open, onClose }: SideMenuProps) => {
                 <LogOut className="h-4 w-4" />
                 ENCERRAR TURNO
               </button>
-              <div className="mt-4 px-4 py-4 rounded-2xl bg-white/5 border border-white/10 text-left space-y-2 shadow-inner">
+
+              <button
+                onClick={() => setDevOpen(true)}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-3 text-sm font-bold text-primary transition-all hover:bg-primary/20 shadow-glow-cyan-sm active:scale-95"
+              >
+                <GraduationCap className="h-4 w-4" />
+                CONHECER DESENVOLVEDOR
+              </button>
+
+              <div className="mt-4 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1 shadow-inner">
                 <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                  <div className="font-mono-tactical text-[9px] uppercase tracking-[0.3em] text-white/90">
+                  <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                  <div className="font-mono-tactical text-[8px] uppercase tracking-[0.3em] text-white/90">
                     Último Sincronismo
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-[12px] font-black text-primary uppercase tracking-wider">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black text-primary uppercase tracking-wider">
                     {lastSync ? lastSync.toLocaleTimeString('pt-BR') : "--:--:--"}
                   </div>
-                  <div className="text-[10px] font-bold text-white uppercase tracking-tighter opacity-80">
-                    Operador: {lastSyncUser || 'Sistema'}
+                  <div className="text-[9px] font-bold text-white uppercase tracking-tighter opacity-60 truncate ml-2">
+                    {lastSyncUser || 'Sistema'}
                   </div>
                 </div>
               </div>
               <div className="mt-4 text-center font-mono-tactical text-[10px] font-black uppercase tracking-[0.3em] text-white">
-                Victor's Smart Estoque v2.0 · PWA-PRO
+                Victor's Smart Stock v2.0
               </div>
             </div>
           </motion.aside>

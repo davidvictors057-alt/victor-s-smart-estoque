@@ -7,7 +7,6 @@ import {
   Sparkles, 
   AlertTriangle, 
   TrendingUp, 
-  Target, 
   Brain, 
   Zap, 
   Lightbulb, 
@@ -160,7 +159,7 @@ export const AIView = () => {
       });
     } else {
       list.push({
-        icon: Target,
+        icon: Activity,
         title: "Oportunidade de Venda",
         body: "O fluxo de saídas está moderado. Considere promoções relâmpago via IA para itens parados há +15 dias.",
         confidence: 88,
@@ -311,18 +310,18 @@ export const AIView = () => {
           </div>
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden bg-black-piano neon-blue-border rounded-[2.5rem] shadow-2xl relative h-full">
-            {/* Chat Header */}
-            <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-6 py-4">
+            {/* Chat Header - Glassmorphism Integration */}
+            <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-ai/10 via-white/[0.02] to-transparent backdrop-blur-xl px-6 py-4">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ai/20 text-ai ring-1 ring-ai/50 shadow-glow-ai">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ai/20 text-ai ring-1 ring-ai/50 shadow-[0_0_20px_rgba(168,85,247,0.3)]">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-black" />
                 </div>
                 <div>
-                   <div className="text-sm font-black text-white">Assistente Estratégico</div>
-                   <div className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-ai shadow-glow-ai">Geração 3.1 · Neural Link</div>
+                   <div className="text-sm font-black text-white tracking-tight">Assistente Estratégico</div>
+                   <div className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-ai/80">Geração 3.1 · Neural Link</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
