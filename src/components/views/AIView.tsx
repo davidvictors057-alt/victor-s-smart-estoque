@@ -61,13 +61,58 @@ export const AIView = () => {
   } = useStore();
   const [activeTab, setActiveTab] = useState<"chat" | "nuc">("nuc");
   const [inputText, setInputText] = useState("");
+  const [isListening, setIsListening] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Inicializa o motor de voz
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0])
+          .map((result) => result.transcript)
+          .join('');
+        
+        setInputText(transcript);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      try {
+        // Feedback tátil se disponível
+        if (window.navigator.vibrate) window.navigator.vibrate(50);
+        recognitionRef.current?.start();
+      } catch (err) {
+        console.error("Erro ao iniciar reconhecimento:", err);
+      }
+    }
+  };
 
   useEffect(() => {
-    if (activeTab === "chat") {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (activeTab === "chat" && chatHistory.length > 0) {
+      // Pequeno delay para garantir que o DOM renderizou as novas mensagens
+      const timer = setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [chatHistory, activeTab]);
+  }, [chatHistory.length, activeTab]);
 
   // Dynamic Insights Calculation
   const getDynamicInsights = (): Insight[] => {
@@ -151,7 +196,7 @@ export const AIView = () => {
   };
 
   return (
-    <div className="flex flex-col px-2 overflow-hidden h-[calc(100vh-200px)]">
+    <div className="flex flex-col px-2 overflow-hidden h-[calc(100dvh-220px)]">
       {/* Tab Switcher - Segmented Control */}
       <div className="bg-black-piano neon-blue-border-thin mb-4 flex rounded-2xl p-1.5 shadow-lg">
         <button
@@ -357,15 +402,28 @@ export const AIView = () => {
             {/* Input Area */}
             <div className="p-6 bg-gradient-to-t from-black to-transparent">
               <div className="bg-white/[0.03] neon-blue-border-thin flex items-center gap-3 rounded-[2rem] px-4 py-2 transition-all focus-within:neon-blue-border focus-within:bg-white/[0.06]">
-                <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-white/30 hover:bg-ai/20 hover:text-ai transition-all">
-                  <Mic className="h-5 w-5" />
+                <button 
+                  onClick={toggleListening}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all ${
+                    isListening 
+                      ? 'bg-rose-500 text-white animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.6)]' 
+                      : 'bg-white/5 text-white/30 hover:bg-ai/20 hover:text-ai'
+                  }`}
+                >
+                  <Mic className={`h-5 w-5 ${isListening ? 'animate-bounce' : ''}`} />
                 </button>
-                <input 
+                <textarea 
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                   placeholder="Comando estratégico..."
-                  className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white/10"
+                  rows={1}
+                  className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white/10 resize-none py-2 min-h-[40px] max-h-32 no-scrollbar"
                 />
                 <button 
                   onClick={() => handleSendMessage()}

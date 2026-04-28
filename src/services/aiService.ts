@@ -4,7 +4,7 @@ import { SYSTEM_PROMPTS } from "./prompts";
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"; 
 const SECONDARY_MODEL = "gemini-1.5-flash-latest";       
-const FALLBACK_MODEL = "gemini-2.0-flash-exp"; 
+const FALLBACK_MODEL = "gemini-1.5-flash-lite"; 
 
 class AIService {
   private genAI: GoogleGenerativeAI | null = null;
@@ -90,11 +90,12 @@ class AIService {
         time: parseFloat(((endTime - startTime) / 1000).toFixed(2)), 
         model: usedModel
       };
-    } catch (error) {
+    } catch (error: any) {
+      console.error("AI Strategic Error:", error);
       return { 
-        text: "Falha na comunicação neural. Tente novamente em instantes.", 
+        text: `🧠 FALHA NEURAL: ${error.message || "Erro desconhecido na conexão 3.1"}. Verifique se a API Key suporta este modelo Preview.`, 
         time: parseFloat(((performance.now() - startTime) / 1000).toFixed(2)),
-        model: usedModel
+        model: "ERROR"
       };
     }
   }

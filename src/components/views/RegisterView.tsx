@@ -99,15 +99,15 @@ export const RegisterView = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-primary/10 border-2 border-primary flex items-center justify-between rounded-2xl p-5 shadow-[0_0_30px_rgba(0,163,255,0.2)] backdrop-blur-md"
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-black shadow-glow-cyan">
-            <Plus className="h-6 w-6 stroke-[3]" />
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 text-primary ring-1 ring-primary shadow-glow-cyan">
+            <Package className="h-6 w-6" />
           </div>
           <div>
-            <div className="font-mono-tactical text-[11px] font-black uppercase tracking-[0.3em] text-primary">
-              CADASTRAR ITEM
+            <div className="font-mono-tactical text-[11px] font-black uppercase tracking-[0.3em] text-primary/70">
+              TERMINAL DE ENTRADA
             </div>
-            <div className="text-base font-black text-white tracking-tight">Novo Produto de Elite</div>
+            <div className="text-xl font-black text-white tracking-tight text-glow-cyan">Cadastro de Item</div>
           </div>
         </div>
         <button 
@@ -126,43 +126,30 @@ export const RegisterView = () => {
           <motion.div 
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="col-span-3"
+            className="col-span-4"
           >
-            <div className="font-mono-tactical text-[8px] font-black text-primary/40 mb-2 uppercase tracking-widest text-center">FOTO PRODUTO</div>
             <button
               type="button"
               onClick={() => setPhotoOpen(true)}
-              className="bg-black-piano group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-[2.5rem] border-2 border-primary/60 hover:border-primary transition-all shadow-[0_10px_40px_rgba(0,0,0,0.8)]"
+              className="bg-black-piano group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-white/20 hover:border-primary transition-all shadow-[0_10px_40px_rgba(0,0,0,0.5)]"
             >
               {photo ? (
-                <div className="relative h-full w-full">
-                  <img 
-                    src={photo} 
-                    alt="Foto" 
-                    className={`h-full w-full object-cover transition-all duration-1000 ${isProcessing ? 'brightness-150 blur-sm scale-110' : 'brightness-110'}`} 
-                    style={{ 
-                      maskImage: 'radial-gradient(circle at center, black 55%, transparent 95%)',
-                      WebkitMaskImage: 'radial-gradient(circle at center, black 55%, transparent 95%)'
-                    }}
-                  />
-                  {isProcessing && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                      <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-cyan" />
-                    </div>
-                  )}
-                </div>
+                <img 
+                  src={photo} 
+                  alt="Foto" 
+                  className={`h-full w-full object-cover transition-all duration-1000 ${isProcessing ? 'brightness-150 blur-sm' : 'brightness-110'}`} 
+                />
               ) : (
-                <div className="flex flex-col items-center gap-2 text-primary group-hover:scale-110 transition-all duration-500">
-                  <Camera className="h-10 w-10 drop-shadow-glow-cyan" />
+                <div className="flex flex-col items-center gap-2 text-white/40 group-hover:text-primary transition-all duration-500">
+                  <Camera className="h-8 w-8" />
                   <span className="font-mono-tactical text-[8px] font-black uppercase tracking-[0.3em]">FOTO</span>
                 </div>
               )}
-              <div className="tactical-corner absolute inset-3 opacity-30 group-hover:opacity-100 transition-opacity" />
             </button>
           </motion.div>
 
           {/* SKU Scanner - Side by Side with Photo */}
-          <div className="col-span-9 h-full">
+          <div className="col-span-8 h-full">
             <div className="relative h-full">
               <FormField 
                 icon={ScanLine} 
@@ -187,7 +174,7 @@ export const RegisterView = () => {
                   value={sku}
                   onChange={(e) => setSku(e.target.value)}
                   placeholder="BIPE O SKU..."
-                  className="font-mono-tactical w-full bg-transparent pr-14 font-black text-primary placeholder-primary outline-none text-[10px] sm:text-sm py-3"
+                  className="font-mono-tactical w-full bg-transparent pr-14 font-black text-primary placeholder:text-white/30 outline-none text-[10px] sm:text-sm py-3"
                 />
               </FormField>
             </div>
@@ -201,7 +188,7 @@ export const RegisterView = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: iPhone 15 Pro Max 256GB"
-              className="w-full bg-transparent font-black text-white placeholder-white/80 outline-none text-base py-1"
+              className="w-full bg-transparent font-black text-white placeholder:text-white/30 outline-none text-base py-1"
             />
           </FormField>
         </div>
@@ -213,28 +200,32 @@ export const RegisterView = () => {
             label="IMEI / SERIAL DO DISPOSITIVO" 
             mono
             trailing={
-              <button 
-                type="button"
-                onClick={() => setShowImei2(!showImei2)}
-                className={`font-mono-tactical text-[9px] font-black px-3 py-1 rounded-lg border-2 transition-all ${
-                  showImei2 ? "bg-primary text-black border-primary shadow-glow-cyan" : "text-white/40 border-white/20 hover:text-primary hover:border-primary"
-                }`}
-              >
-                {showImei2 ? "- REMOVER" : "+ 2º IMEI"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowImei2(!showImei2)}
+                  className={`font-mono-tactical text-[9px] font-black px-2 py-1 rounded-lg border transition-all ${
+                    showImei2 ? "bg-primary text-black border-primary" : "text-white/20 border-white/10"
+                  }`}
+                >
+                  {showImei2 ? "- REMOVER" : "+ 2º"}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setScannerOpen("imei1")} 
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-black shadow-glow-cyan transition-all active:scale-95"
+                >
+                  <ScanLine className="h-4 w-4 stroke-[3]" />
+                </button>
+              </div>
             }
           >
-            <div className="flex items-center gap-3">
-              <input
-                value={imei}
-                onChange={(e) => setImei(e.target.value)}
-                placeholder="Número de Série..."
-                className="font-mono-tactical w-full bg-transparent text-sm tracking-[0.2em] font-black text-primary outline-none placeholder:text-white/80"
-              />
-              <button type="button" onClick={() => setScannerOpen("imei1")} className="text-primary hover:text-primary/80 transition-all active:scale-90 p-1 border border-primary/20 rounded-lg">
-                <ScanLine className="h-5 w-5 drop-shadow-glow-cyan" />
-              </button>
-            </div>
+            <input
+              value={imei}
+              onChange={(e) => setImei(e.target.value)}
+              placeholder="Digite ou bipe o serial..."
+              className="font-mono-tactical w-full bg-transparent text-sm tracking-[0.2em] font-black text-primary outline-none placeholder:text-white/20"
+            />
           </FormField>
         </div>
 
@@ -270,8 +261,8 @@ export const RegisterView = () => {
               type="number"
               value={cost}
               onChange={(e) => setCost(e.target.value)}
-              placeholder="0.00"
-              className="font-mono-tactical w-full bg-transparent text-xl font-black text-white outline-none placeholder:text-white/80"
+              placeholder="0,00"
+              className="font-mono-tactical w-full bg-transparent text-xl font-black text-white outline-none placeholder:text-white/20"
             />
           </FormField>
           <FormField icon={DollarSign} label="VENDA (R$)">
@@ -279,8 +270,8 @@ export const RegisterView = () => {
               type="number"
               value={sale}
               onChange={(e) => setSale(e.target.value)}
-              placeholder="0.00"
-              className="font-mono-tactical w-full bg-transparent text-xl font-black text-success outline-none placeholder:text-white/80"
+              placeholder="0,00"
+              className="font-mono-tactical w-full bg-transparent text-xl font-black text-success outline-none placeholder:text-white/20"
             />
           </FormField>
         </div>
@@ -360,11 +351,11 @@ export const RegisterView = () => {
 };
 
 const FormField = ({ icon: Icon, label, children, mono = false, trailing, className = "", labelClassName = "" }: any) => (
-  <div className={`group relative rounded-2xl border-[3px] border-white/80 bg-white/10 px-4 py-3.5 transition-all focus-within:border-primary focus-within:bg-white/[0.2] shadow-[0_5px_15px_rgba(255,255,255,0.1)] hover:border-white hover:bg-white/[0.15] ${className}`}>
-    <div className={`font-mono-tactical mb-1.5 flex items-center justify-between gap-2 text-[12px] font-black uppercase tracking-[0.2em] text-white group-focus-within:text-primary transition-colors ${labelClassName}`}>
-      <div className="flex items-center gap-1.5">
-        <Icon className="h-4 w-4 text-primary drop-shadow-[0_0_15px_rgba(0,163,255,1)]" />
-        <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] text-white vivid-shadow">{label}</span>
+  <div className={`group relative rounded-2xl border-2 border-white/10 bg-white/[0.07] px-4 py-4 transition-all focus-within:border-primary focus-within:bg-white/[0.12] hover:border-white/20 ${className}`}>
+    <div className={`font-mono-tactical mb-2 flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white group-focus-within:text-primary transition-colors ${labelClassName}`}>
+      <div className="flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5 text-primary" />
+        <span>{label}</span>
       </div>
       {trailing}
     </div>

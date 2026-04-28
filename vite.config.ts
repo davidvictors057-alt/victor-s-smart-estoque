@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: true,
     port: 8080,
-    https: {},
+    https: process.env.VITE_TUNNEL ? false : {},
+    allowedHosts: ['.serveousercontent.com', '.loca.lt', 'localhost'],
     hmr: {
       overlay: false,
     },
@@ -23,7 +24,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(), 
-    basicSsl(),
+    !process.env.VITE_TUNNEL && basicSsl(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
