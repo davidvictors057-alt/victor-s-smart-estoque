@@ -31,7 +31,18 @@ Use estes comandos para guiar o fluxo de trabalho automatizado:
 O servidor está configurado para permitir acesso via celular na rede local:
 
 - **URL Local**: `http://localhost:8081`
-- **URL Rede**: `http://192.168.0.117:8081` (IP atual do computador)
+- **URL Rede**: `https://192.168.0.117:8080` (IP atual do computador)
+
+---
+
+### 📱 Instalação PWA (Celular/Android)
+Se o botão "Instalar Aplicativo" não aparecer devido ao SSL local, siga estes passos no Chrome do celular:
+
+1. Acesse: `chrome://flags`
+2. Ative (**Enabled**): `Insecure origins treated as secure`
+3. Adicione o IP: `https://192.168.0.117:8080`
+4. Clique em **Relaunch**.
+5. O menu do Chrome agora mostrará **"Instalar Aplicativo"**.
 
 ---
 

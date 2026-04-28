@@ -26,10 +26,41 @@ export default defineConfig(({ mode }) => ({
     basicSsl(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'robots.txt', 'pwa-icon.png'],
-      manifest: false, // Use manual manifest.json in public folder
+      injectRegister: 'auto',
+      includeAssets: ['favicon.png', 'robots.txt', 'victor-pwa-192.png', 'victor-pwa-512.png', 'victor-apple-touch.png'],
+      manifest: {
+        name: "Victor's Smart Estoque V2.0",
+        short_name: "Victor's Smart Estoque V2.0",
+        description: "Gestão Tática Victor Celulares",
+        id: "/",
+        start_url: "/",
+        scope: "/",
+        theme_color: "#000000",
+        background_color: "#000000",
+        display: "standalone",
+        orientation: "portrait",
+        icons: [
+          {
+            src: "victor-pwa-192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "victor-pwa-512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "victor-pwa-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
