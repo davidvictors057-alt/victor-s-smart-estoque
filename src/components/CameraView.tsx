@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, X, ScanLine, Zap, RefreshCw, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { Camera, X, ScanLine, Zap, RefreshCw, AlertCircle, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { ManualInputModal } from "./ManualInputModal";
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 
@@ -11,6 +11,10 @@ interface CameraViewProps {
   mode?: "scan" | "photo";
   onCapture?: (dataUrl: string) => void;
   onScan?: (code: string) => void;
+  multiCapture?: boolean;
+  multiScan?: boolean;
+  capturedCount?: number;
+  onFinalize?: () => void;
 }
 
 /**
@@ -25,14 +29,20 @@ export const CameraView = ({
   mode = "scan",
   onCapture,
   onScan,
+  multiCapture = false,
+  multiScan = false,
+  capturedCount = 0,
+  onFinalize,
 }: CameraViewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const lastScanRef = useRef<{ code: string; time: number } | null>(null);
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [ready, setReady] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,21 +72,45 @@ export const CameraView = ({
           
           if (mode === 'scan') {
             const reader = new BrowserMultiFormatReader();
-            controlsRef.current = await reader.decodeFromVideoElement(videoRef.current, (result, err, controls) => {
+            controlsRef.current = await reader.decodeFromVideoElement(videoRef.current, (result, err) => {
               if (result && !cancelled) {
-                // Play a generic beep sound (optional, but good for feedback)
+                // Tactical Feedback: Beep + Haptic
                 try {
-                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                  const oscillator = audioCtx.createOscillator();
-                  oscillator.type = 'sine';
-                  oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800Hz
-                  oscillator.connect(audioCtx.destination);
-                  oscillator.start();
-                  oscillator.stop(audioCtx.currentTime + 0.1); // 100ms
-                } catch (e) {}
+                  const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+                  if (AudioContextClass) {
+                    const audioCtx = new AudioContextClass();
+                    const oscillator = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                    oscillator.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.1);
+                  }
+                  if (navigator.vibrate) navigator.vibrate(60);
+                } catch (e) {
+                  console.warn("Feedback audio/tátil falhou:", e);
+                }
 
-                onScan?.(result.getText());
-                onClose();
+                const code = result.getText();
+                const now = Date.now();
+                const lastScan = lastScanRef.current;
+                
+                // Intervalo de 2s solicitado pelo usuário
+                if (lastScan && lastScan.code === code && (now - lastScan.time) < 2000) return;
+
+                lastScanRef.current = { code, time: now };
+                
+                // Feedback visual de "Adicionado"
+                setScanFeedback(code);
+                setTimeout(() => setScanFeedback(null), 1500);
+
+                onScan?.(code);
+                if (!multiScan) onClose();
               }
             });
           }
@@ -114,7 +148,9 @@ export const CameraView = ({
     canvas.getContext("2d")?.drawImage(video, 0, 0);
     const url = canvas.toDataURL("image/jpeg", 0.85);
     onCapture?.(url);
-    onClose();
+    if (!multiCapture) {
+      onClose();
+    }
   };
 
   const handleManualSubmit = (code: string) => {
@@ -141,7 +177,7 @@ export const CameraView = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex flex-col bg-black"
+          className="fixed inset-0 z-[200] flex flex-col bg-black"
           role="dialog"
           aria-modal="true"
         >
@@ -167,7 +203,7 @@ export const CameraView = ({
             </button>
           </div>
 
-          {/* Video */}
+            {/* Video */}
           <div className="relative flex-1 overflow-hidden bg-black">
             <video
               ref={videoRef}
@@ -175,6 +211,24 @@ export const CameraView = ({
               muted
               className="h-full w-full object-cover"
             />
+
+            {/* Scan Feedback Animation */}
+            <AnimatePresence>
+              {scanFeedback && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 1.2 }}
+                  className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none"
+                >
+                  <div className="bg-success/90 backdrop-blur-xl px-8 py-4 rounded-3xl border-2 border-white/20 shadow-[0_0_50px_rgba(34,197,94,0.5)] flex flex-col items-center">
+                    <CheckCircle2 className="h-12 w-12 text-black mb-2 stroke-[3]" />
+                    <span className="text-black font-black uppercase tracking-tighter text-xl italic">ADICIONADO</span>
+                    <span className="text-black/60 font-mono-tactical text-[10px] mt-1">{scanFeedback}</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* tactical overlay */}
             <div className="pointer-events-none absolute inset-0">
@@ -218,7 +272,7 @@ export const CameraView = ({
           />
 
           {/* Controls */}
-          <div className="glass-panel-strong relative z-10 flex items-center justify-around px-4 py-5">
+          <div className="glass-panel-strong relative z-10 flex items-center justify-around px-4 py-5 pb-10">
             <button
               onClick={() => setFacing((f) => (f === "environment" ? "user" : "environment"))}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10"
@@ -227,51 +281,59 @@ export const CameraView = ({
               <RefreshCw className="h-5 w-5" />
             </button>
 
-            <button
-              onClick={() => setManualOpen(true)}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10 transition-all hover:text-primary active:scale-95"
-              aria-label="Digitar manualmente"
-            >
-              <div className="flex flex-col items-center gap-0.5">
-                <ScanLine className="h-4 w-4" />
-                <span className="font-mono-tactical text-[7px] font-black">EDIT</span>
+            {multiCapture || (mode === 'scan' && multiScan) ? (
+              <div className="flex flex-col items-center">
+                <span className="font-mono-tactical text-[10px] text-primary font-black mb-1">{capturedCount} ITENS</span>
+                <div className="h-1 w-8 bg-primary/20 rounded-full" />
               </div>
-            </button>
+            ) : (
+              <div className="w-12" />
+            )}
 
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={mode === "photo" ? handleCapture : onClose}
-              disabled={!ready}
-              className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-primary bg-primary/20 shadow-glow-cyan disabled:opacity-40"
-              aria-label={mode === "photo" ? "Capturar" : "Confirmar"}
+            <div className="relative">
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={mode === "photo" ? handleCapture : (multiScan ? onFinalize : () => {})}
+                disabled={!ready}
+                className={`flex h-20 w-20 items-center justify-center rounded-full border-4 shadow-2xl transition-all ${
+                  mode === 'photo' 
+                  ? 'border-primary bg-primary/20 shadow-glow-cyan' 
+                  : 'border-success bg-success/20 shadow-glow-green'
+                } disabled:opacity-40`}
+                aria-label={mode === "photo" ? "Capturar" : "Scanner Ativo"}
+              >
+                {mode === "photo" ? (
+                  <div className="h-12 w-12 rounded-full bg-primary shadow-[0_0_20px_rgba(0,163,255,0.6)]" />
+                ) : (
+                  <ScanLine className={`h-8 w-8 text-success ${ready ? 'animate-pulse' : ''}`} />
+                )}
+              </motion.button>
+              
+              {(multiCapture || multiScan) && capturedCount > 0 && (
+                <motion.button
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  onClick={onFinalize}
+                  className="absolute -top-2 -right-16 bg-success py-2 px-4 rounded-xl text-black font-black text-[9px] shadow-glow-green uppercase tracking-tighter"
+                >
+                  AUDITAR AGORA
+                </motion.button>
+              )}
+            </div>
+
+            <button
+              onClick={() => mode === "photo" ? fileInputRef.current?.click() : onClose()}
+              className={`flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10 transition-all active:scale-95 ${mode !== 'photo' ? 'hover:text-danger' : 'hover:text-primary'}`}
             >
               {mode === "photo" ? (
-                <div className="h-10 w-10 rounded-full bg-primary shadow-[0_0_15px_rgba(0,163,255,0.5)]" />
-              ) : (
-                <Zap className="h-7 w-7 text-primary" />
-              )}
-            </motion.button>
-
-            {mode === "photo" ? (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10 transition-all hover:text-primary active:scale-95"
-                aria-label="Subir da galeria"
-              >
                 <div className="flex flex-col items-center gap-0.5">
                   <ImageIcon className="h-5 w-5" />
-                  <span className="font-mono-tactical text-[7px] font-black">GALERIA</span>
+                  <span className="font-mono-tactical text-[7px] font-black uppercase">Galeria</span>
                 </div>
-              </button>
-            ) : (
-              <button
-                onClick={onClose}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10 transition-all hover:text-danger active:scale-95"
-                aria-label="Cancelar"
-              >
+              ) : (
                 <X className="h-5 w-5" />
-              </button>
-            )}
+              )}
+            </button>
 
             <input 
               type="file" 

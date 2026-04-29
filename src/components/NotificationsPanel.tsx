@@ -46,14 +46,14 @@ export const NotificationsPanel = ({ open, onClose }: NotificationsPanelProps) =
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-background/70 backdrop-blur-md"
+          className="fixed inset-0 z-[100] bg-background/70 backdrop-blur-md"
         />
         <motion.div
           initial={{ y: -20, opacity: 0, scale: 0.96 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: -20, opacity: 0, scale: 0.96 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="glass-panel-strong fixed right-3 top-20 z-50 w-[92%] max-w-sm overflow-hidden rounded-2xl border-2 border-primary/30"
+          className="glass-panel-strong fixed right-3 top-20 z-[101] w-[92%] max-w-sm overflow-hidden rounded-2xl border-2 border-primary/30"
         >
           <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
             <div className="flex items-center gap-2">

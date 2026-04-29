@@ -97,6 +97,7 @@ const Index = () => {
     if (role === "employee") {
       switch (employeeTab) {
         case "scan": return <EmployeeHUD />;
+        case "ai_vision": return <AIVisionAuditView />;
         case "moves": return <MovementsView />;
         case "users": return <UsersView />;
         case "register": return <RegisterView />;

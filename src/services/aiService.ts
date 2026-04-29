@@ -2,8 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPTS } from "./prompts";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"; 
-
+const PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"; // Oráculo Operacional v6.3
 class AIService {
   private genAI: GoogleGenerativeAI | null = null;
 
@@ -188,17 +187,19 @@ class AIService {
           : "IDENTIFICAÇÃO LIVRE: Não há lista de referência. Identifique e conte absolutamente tudo o que encontrar no vídeo.";
       }
 
-      const prompt = `
-        ${SYSTEM_PROMPTS.AUDIT_STOCK}
-        
-        MODO: ${contextType === 'stock' ? 'AUDITORIA DE ESTOQUE' : 'CONFERÊNCIA DE RECEBIMENTO'}
-        ${contextPrompt}
-        
-        INSTRUÇÕES DE VÍDEO:
-        1. Analise o vídeo de 10 segundos para identificar todos os produtos.
-        2. Use a visão temporal para evitar contar o mesmo item duas vezes se a câmera se mover.
-        3. Retorne um JSON no final da resposta: {"identified": [{"name": "string", "qty": number}]}.
-      `;
+      const isReceipt = contextType === 'invoice';
+      const prompt = isReceipt 
+        ? SYSTEM_PROMPTS.RECEIPT_AUDIT 
+        : `
+          ${SYSTEM_PROMPTS.AUDIT_STOCK}
+          
+          MODO: AUDITORIA DE ESTOQUE
+          ${contextPrompt}
+          
+          INSTRUÇÕES:
+          1. Analise a imagem para identificar todos os produtos.
+          2. Retorne um JSON no final da resposta: {"identified": [{"name": "string", "qty": number}]}.
+        `;
 
       const result = await model.generateContent([
         { text: prompt },
@@ -251,26 +252,59 @@ class AIService {
     return "Cérebro em modo Simulação. Configure a API Key para insights reais.";
   }
 
+  async resolveMultipleSkus(skus: string[]) {
+    if (!skus.length) return [];
+
+    const prompt = `
+      ${SYSTEM_PROMPTS.SKU_RESOLUTION}
+      
+      SKUS PARA IDENTIFICAÇÃO EM LOTE:
+      ${skus.join('\n')}
+      
+      Retorne um JSON com o array "identified" contendo { "name", "sku" } para cada item.
+      
+      DICA DE OURO: Note 60 é REALME. Note 13 é REDMI. Não confunda!
+    `;
+    
+    try {
+      const model = await this.getModel();
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      
+      const jsonMatch = text.match(/\{.*\}/s);
+      const cleanJson = jsonMatch ? jsonMatch[0] : text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleanJson);
+      
+      return parsed.identified || [];
+    } catch (error) {
+      console.error("Batch SKU Resolve Error:", error);
+      return [];
+    }
+  }
+
+  async resolveProductFromSku(sku: string) {
+    const results = await this.resolveMultipleSkus([sku]);
+    return results.length > 0 ? results[0] : null;
+  }
+
   async analyzeProductBox(base64Image: string) {
     try {
       if (!this.genAI) throw new Error("Cérebro Offline.");
       const model = this.genAI.getGenerativeModel({ model: PRIMARY_MODEL });
       
       const prompt = `
-        Aja como um scanner tático de logística para a Victor's Smart Estoque.
-        Analise esta imagem de uma caixa de smartphone e extraia:
-        1. Nome exato do modelo (Ex: iPhone 15 Pro Max 256GB Black).
-        2. SKU ou Código de Referência.
-        3. IMEI 1.
-        4. IMEI 2.
-
-        Retorne APENAS o JSON puro, sem markdown, no formato:
-        {
-          "name": "string",
-          "sku": "string",
-          "imei1": "string",
-          "imei2": "string"
-        }
+        Analise esta etiqueta de logística. 
+        Retorne APENAS um JSON com os campos abaixo.
+        IMPORTANTE: O campo "name" deve seguir RIGOROSAMENTE este formato: MARCA MODELO RAM/ARMAZENAMENTO COR (Ex: REALME NOTE 60 4/128GB PRETO).
+        
+        Campos:
+        - name: Nome formatado (MARCA MODELO RAM/ARMAZENAMENTO COR)
+        - sku: SKU/Part Number
+        - imei1: Primeiro IMEI
+        - imei2: Segundo IMEI (se houver)
+        - brand: Marca
+        
+        Seja extremamente preciso. O usuário é um operador de estoque de elite.
       `;
 
       const result = await model.generateContent([
@@ -289,6 +323,28 @@ class AIService {
     } catch (error) {
       console.error("AI Analysis Failed:", error);
       return null;
+    }
+  }
+
+  async extractTextFromImage(base64Image: string) {
+    try {
+      const model = await this.getModel();
+      const prompt = "Extraia todo o texto visível nesta imagem, focando especialmente em IMEIs, Seriais e códigos alfanuméricos. Retorne apenas o texto puro.";
+      
+      const result = await model.generateContent([
+        { text: prompt },
+        {
+          inlineData: {
+            data: base64Image.includes(',') ? base64Image.split(',')[1] : base64Image,
+            mimeType: "image/jpeg"
+          }
+        }
+      ]);
+
+      return result.response.text();
+    } catch (error) {
+      console.error("OCR extraction failed:", error);
+      return "";
     }
   }
 }

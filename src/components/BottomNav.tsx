@@ -11,6 +11,7 @@ interface Tab {
 
 const employeeTabs: Tab[] = [
   { id: "scan", label: "Início", icon: Home },
+  { id: "ai_vision", label: "Vision", icon: Eye },
   { id: "moves", label: "Movimentos", icon: ArrowLeftRight },
   { id: "users", label: "Equipe", icon: UsersIcon },
   { id: "register", label: "Cadastro", icon: ClipboardList },

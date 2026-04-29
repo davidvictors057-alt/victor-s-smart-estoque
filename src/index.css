@@ -68,11 +68,11 @@
                      linear-gradient(90deg, hsl(180 100% 50% / 0.04) 1px, transparent 1px);
 
     /* Shadows / Glows */
-    --glow-cyan: 0 0 25px hsl(180 100% 50% / 0.5), 0 0 50px hsl(180 100% 50% / 0.25);
-    --glow-cyan-strong: 0 0 40px hsl(180 100% 50% / 0.7), 0 0 80px hsl(180 100% 50% / 0.35);
-    --glow-ai: 0 0 30px hsl(282 86% 53% / 0.6), 0 0 60px hsl(282 86% 53% / 0.3);
-    --glow-success: 0 0 25px hsl(120 100% 50% / 0.6), 0 0 50px hsl(120 100% 50% / 0.3);
-    --glow-danger: 0 0 25px hsl(348 100% 50% / 0.6), 0 0 50px hsl(348 100% 50% / 0.3);
+    --glow-cyan: 0 0 35px hsl(180 100% 50% / 0.6), 0 0 60px hsl(180 100% 50% / 0.3);
+    --glow-cyan-strong: 0 0 50px hsl(180 100% 50% / 0.8), 0 0 100px hsl(180 100% 50% / 0.4);
+    --glow-ai: 0 0 40px hsl(282 86% 53% / 0.7), 0 0 80px hsl(282 86% 53% / 0.35);
+    --glow-success: 0 0 35px hsl(120 100% 50% / 0.7), 0 0 70px hsl(120 100% 50% / 0.35);
+    --glow-danger: 0 0 35px hsl(348 100% 50% / 0.7), 0 0 70px hsl(348 100% 50% / 0.35);
     --glow-white: 0 0 30px hsl(0 0% 100% / 0.7), 0 0 60px hsl(180 100% 80% / 0.3);
 
     --shadow-glass: 0 8px 32px hsl(0 0% 0% / 0.6), inset 0 1px 0 hsl(180 100% 50% / 0.08);
@@ -367,6 +367,7 @@
   .shadow-glow-success-sm { box-shadow: 0 0 20px hsl(120 100% 50% / 0.3); }
   .shadow-glow-cyan { box-shadow: var(--glow-cyan); }
   .shadow-glow-success { box-shadow: var(--glow-success); }
+  .shadow-glow-green { box-shadow: var(--glow-success); }
   .shadow-glow-ai { box-shadow: var(--glow-ai); }
   .shadow-glow-danger { box-shadow: var(--glow-danger); }
 

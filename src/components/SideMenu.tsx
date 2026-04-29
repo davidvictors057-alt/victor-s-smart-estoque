@@ -116,14 +116,14 @@ export const SideMenu = ({ open, onClose }: SideMenuProps) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-background/70 backdrop-blur-md"
+            className="fixed inset-0 z-[100] bg-background/70 backdrop-blur-md"
           />
           <motion.aside
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="bg-black-piano neon-blue-border fixed inset-y-0 left-0 z-50 flex w-[85%] max-w-sm flex-col rounded-r-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)]"
+            className="bg-black-piano neon-blue-border fixed inset-y-0 left-0 z-[101] flex w-[85%] max-w-sm flex-col rounded-r-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)]"
           >
             <div className="flex items-center justify-between px-5 py-4">
               <VictorsLogo size="sm" />

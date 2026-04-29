@@ -19,6 +19,13 @@ export interface Product {
   updated_at: string;
 }
 
+export interface CatalogItem {
+  sku: string;
+  name: string;
+  spec?: string | null;
+  last_updated: string;
+}
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -75,6 +82,7 @@ export interface SupportTicket {
 
 interface AppState {
   products: Product[];
+  catalog: CatalogItem[];
   profiles: Profile[];
   movements: Movement[];
   notifications: AppNotification[];
@@ -100,6 +108,8 @@ interface AppState {
   fetchMovements: () => Promise<void>;
   fetchNotifications: () => Promise<void>;
   fetchTickets: () => Promise<void>;
+  fetchCatalog: () => Promise<void>;
+  addToCatalog: (item: Omit<CatalogItem, 'last_updated'>) => Promise<void>;
   fetchAll: () => Promise<void>;
   updateProfile: (id: string, updates: Partial<Profile>) => Promise<void>;
   clearCache: () => void;
@@ -117,6 +127,8 @@ interface AppState {
   setCurrentUser: (user: Profile | null) => void;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+  fetchProductHistoricalPrices: (sku: string) => Promise<{ cost: number; sale: number } | null>;
+  bulkAddProducts: (products: any[]) => Promise<void>;
   purgeSystem: () => Promise<void>;
   getChartData: () => { name: string; in: number; out: number }[];
   lastOnlineSync: Date | null;
@@ -137,6 +149,7 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       products: [],
+      catalog: [],
       profiles: [],
       movements: [],
       notifications: [],
@@ -174,6 +187,7 @@ export const useStore = create<AppState>()(
         try {
           await Promise.all([
             get().fetchProducts(),
+            get().fetchCatalog(),
             get().fetchProfiles(),
             get().fetchMovements(),
             get().fetchNotifications(),
@@ -194,6 +208,40 @@ export const useStore = create<AppState>()(
           if (error) throw error;
           if (data) set({ products: data });
         } catch (error) { console.error(error); }
+      },
+
+      fetchCatalog: async () => {
+        try {
+          const { data, error } = await supabase.from('product_catalog').select('*');
+          if (error) {
+            // Se a tabela não existir no Supabase ainda, não quebrar o app
+            console.warn("Tabela product_catalog não encontrada no Supabase. Usando apenas cache local.");
+            return;
+          }
+          if (data) set({ catalog: data });
+        } catch (error) { console.error("Erro ao buscar catálogo:", error); }
+      },
+
+      addToCatalog: async (newItem) => {
+        const { catalog } = get();
+        const updatedItem = { ...newItem, last_updated: new Date().toISOString() };
+        
+        // 1. Atualizar Localmente (Imediato)
+        const exists = catalog.find(c => c.sku === newItem.sku);
+        if (exists && exists.name === newItem.name) return; // Já está atualizado
+
+        set((state) => ({
+          catalog: exists 
+            ? state.catalog.map(c => c.sku === newItem.sku ? updatedItem : c)
+            : [...state.catalog, updatedItem]
+        }));
+
+        // 2. Tentar Sincronizar com Supabase
+        try {
+          await supabase.from('product_catalog').upsert(updatedItem);
+        } catch (error) {
+          console.warn("Erro ao sincronizar catálogo com Supabase (offline?):", error);
+        }
       },
 
       fetchProfiles: async () => {
@@ -324,6 +372,71 @@ export const useStore = create<AppState>()(
           if (error) throw error;
           set((state) => ({ products: state.products.filter(p => p.id !== id) }));
         } catch (error) { console.error(error); throw error; }
+      },
+
+      fetchProductHistoricalPrices: async (sku) => {
+        try {
+          const { data, error } = await supabase
+            .from('products')
+            .select('cost, sale')
+            .eq('sku', sku)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          if (error) throw error;
+          return data && data.length > 0 ? { cost: data[0].cost, sale: data[0].sale } : null;
+        } catch (error) {
+          console.error("Erro ao buscar preços históricos:", error);
+          return null;
+        }
+      },
+
+      bulkAddProducts: async (productsList) => {
+        set({ isLoading: true });
+        try {
+          const currentUser = get().currentUser;
+          const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
+          
+          // Flatten products based on quantity
+          const allProductsToInsert: any[] = [];
+          productsList.forEach(item => {
+            const qty = Number(item.quantity) || 1;
+            const { quantity, ...productData } = item;
+            
+            for (let i = 0; i < qty; i++) {
+              allProductsToInsert.push({
+                ...productData,
+                status: 'in_stock',
+                client_id: clientId,
+                imei: i === 0 ? (productData.imei?.trim() || null) : null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+            }
+          });
+
+          const { data, error } = await supabase.from('products').insert(allProductsToInsert).select();
+          if (error) throw error;
+
+          if (data) {
+            const movementPromises = data.map((p) => 
+              get().addMovement({
+                product_id: p.id,
+                operator_id: currentUser?.id || null,
+                type: 'in',
+                notes: `Entrada em Lote: ${p.name}`
+              })
+            );
+            await Promise.all(movementPromises);
+            toast.success(`${data.length} itens registrados com sucesso!`);
+          }
+          await get().fetchAll();
+        } catch (error: any) {
+          console.error("Erro no bulkAddProducts:", error);
+          toast.error(`Erro no lote: ${error.message}`);
+        } finally {
+          set({ isLoading: false });
+        }
       },
 
       updateProfile: async (id, updates) => {
@@ -510,6 +623,7 @@ export const useStore = create<AppState>()(
       name: 'victors-smart-storage',
       partialize: (state) => ({
         currentUser: state.currentUser,
+        catalog: state.catalog,
         appSettings: state.appSettings,
         onlineBrainMode: state.onlineBrainMode,
         chatHistory: state.chatHistory,

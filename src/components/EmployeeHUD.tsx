@@ -407,7 +407,7 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-md sm:items-center"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-background/70 backdrop-blur-md sm:items-center"
       onClick={onClose}
     >
       <motion.div

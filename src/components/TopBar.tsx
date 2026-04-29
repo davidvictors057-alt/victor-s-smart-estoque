@@ -21,7 +21,7 @@ export const TopBar = () => {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="bg-black-piano neon-blue-border relative z-30 flex items-center justify-between rounded-2xl px-5 py-3 shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
+        className="bg-black-piano/90 backdrop-blur-xl neon-blue-border sticky top-0 z-50 flex items-center justify-between rounded-2xl px-5 py-3 shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
       >
         <button
           onClick={() => setMenuOpen(true)}
