@@ -31,6 +31,7 @@ export interface CatalogItem {
   client_id?: string;
   internal_code?: string | null;
   last_updated: string;
+  productId?: string;
 }
 
 export interface Profile {
@@ -138,6 +139,8 @@ interface AppState {
   updateProductsBulk: (ids: string[], updates: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   deleteProductsBulk: (ids: string[]) => Promise<void>;
+  fetchProductImage: (id: string) => Promise<string | null>;
+  fetchCatalogImage: (sku: string) => Promise<string | null>;
   fetchProductHistoricalPrices: (sku: string) => Promise<{ cost: number; sale: number } | null>;
   bulkAddProducts: (products: any[]) => Promise<void>;
   bulkAddMovements: (movements: any[], isBulk?: boolean) => Promise<void>;
@@ -219,38 +222,48 @@ export const useStore = create<AppState>()(
 
       fetchProducts: async () => {
         try {
-          const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false }).limit(1000);
+          const columns = 'id, sku, name, spec, imei, imei2, brand, category, cost, sale, status, internal_code, created_at, updated_at';
+          const { data, error } = await supabase.from('products').select(columns).order('created_at', { ascending: false }).limit(1000);
           if (error) throw error;
-          if (data) set({ products: data });
+          if (data) set({ products: data as Product[] });
         } catch (error) { console.error(error); }
+      },
+
+      fetchProductImage: async (id: string) => {
+        try {
+          const { data, error } = await supabase.from('products').select('image_url').eq('id', id).single();
+          if (error) throw error;
+          return data?.image_url || null;
+        } catch (error) {
+          console.error("Erro ao buscar imagem do produto:", error);
+          return null;
+        }
       },
 
       fetchCatalog: async () => {
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          
-          console.log(`🌐 [Store] Buscando catálogo para cliente: ${clientId}`);
+          const columns = 'sku, name, spec, cost, sale, client_id, internal_code, last_updated';
           const { data, error } = await supabase
             .from('product_catalog')
-            .select('*')
+            .select(columns)
             .eq('client_id', clientId);
-
-          if (error) {
-            console.error("❌ [Store] Erro ao buscar catálogo no Supabase:", {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-              hint: error.hint
-            });
-            return;
-          }
-          if (data) {
-            console.log(`✅ [Store] ${data.length} itens do catálogo carregados.`);
-            set({ catalog: data });
-          }
+          if (error) throw error;
+          if (data) set({ catalog: data as CatalogItem[] });
         } catch (error) { 
-          console.error("🚨 [Store] Erro crítico ao buscar catálogo:", error); 
+          console.error("❌ [Store] Erro ao buscar catálogo:", error);
+        }
+      },
+
+      fetchCatalogImage: async (sku: string) => {
+        try {
+          const { data, error } = await supabase.from('product_catalog').select('image_url').eq('sku', sku).single();
+          if (error) throw error;
+          return data?.image_url || null;
+        } catch (error) {
+          console.error("Erro ao buscar imagem do catálogo:", error);
+          return null;
         }
       },
 
@@ -409,9 +422,14 @@ export const useStore = create<AppState>()(
 
       fetchMovements: async () => {
         try {
-          const { data, error } = await supabase.from('movements').select('*, product:products(*), operator:profiles(*)').order('timestamp', { ascending: false }).limit(100);
+          // Otimização: Limitamos os campos do produto para evitar carregar base64 pesada
+          const { data, error } = await supabase
+            .from('movements')
+            .select('*, product:products(id, name, sku), operator:profiles(*)')
+            .order('timestamp', { ascending: false })
+            .limit(100);
           if (error) throw error;
-          if (data) set({ movements: data });
+          if (data) set({ movements: data as Movement[] });
         } catch (error) { console.error(error); }
       },
 
@@ -671,7 +689,7 @@ export const useStore = create<AppState>()(
               category: item.category || null,
               cost: Number(item.cost) || 0,
               sale: Number(item.sale) || 0,
-              status: (item.status && item.status !== 'resolved') ? item.status : 'in_stock',
+              status: 'in_stock', // Forçar entrada como 'em estoque' para visibilidade imediata no dashboard
               image_url: item.image_url || null,
               client_id: clientId
             };
@@ -1055,10 +1073,13 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         currentUser: state.currentUser,
         // Strip heavy image_url from catalog for persistence to stay under 5MB limit
-        catalog: state.catalog.map(({ image_url, ...rest }) => rest),
+        catalog: state.catalog?.map(({ image_url, ...rest }) => rest) || [],
+        products: state.products || [],
+        profiles: state.profiles || [],
+        movements: state.movements || [],
         appSettings: state.appSettings,
         onlineBrainMode: state.onlineBrainMode,
-        chatHistory: state.chatHistory.slice(-20), // Truncate chat history
+        chatHistory: state.chatHistory?.slice(-20) || [], // Truncate chat history
         lastAiAnalysis: state.lastAiAnalysis,
         lastAiAnalysisModel: state.lastAiAnalysisModel,
       }),
