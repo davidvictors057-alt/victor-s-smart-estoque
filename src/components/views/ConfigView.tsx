@@ -23,6 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ActivityLogsModal } from "@/components/ActivityLogsModal";
 import { PurgeConfirmationModal } from "@/components/PurgeConfirmationModal";
+import { PurgeCatalogModal } from "@/components/PurgeCatalogModal";
 
 export const ConfigView = () => {
   const { appSettings, updateAppSetting, clearCache, fetchAll, lastSync, currentUser } = useStore();
@@ -30,6 +31,7 @@ export const ConfigView = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeCatalogOpen, setPurgeCatalogOpen] = useState(false);
   const [syncTime, setSyncTime] = useState("Nunca sincronizado");
 
   useEffect(() => {
@@ -148,13 +150,22 @@ export const ConfigView = () => {
           />
           
           {currentUser?.full_name?.toLowerCase().includes("david") && (
-            <SettingsItem 
-              icon={Zap} 
-              label="Reiniciar Dados do Sistema" 
-              sub="Apaga logs de movimentos e notificações" 
-              onClick={() => setPurgeOpen(true)}
-              tone="danger"
-            />
+            <>
+              <SettingsItem 
+                icon={Zap} 
+                label="Reiniciar Dados do Sistema" 
+                sub="Apaga logs de movimentos e notificações" 
+                onClick={() => setPurgeOpen(true)}
+                tone="danger"
+              />
+              <SettingsItem 
+                icon={Database} 
+                label="Limpar Catálogo de SKUs" 
+                sub="Zera a inteligência de nomes e fotos" 
+                onClick={() => setPurgeCatalogOpen(true)}
+                tone="danger"
+              />
+            </>
           )}
         </SettingsGroup>
 
@@ -210,6 +221,7 @@ export const ConfigView = () => {
 
       <ActivityLogsModal open={logsOpen} onClose={() => setLogsOpen(false)} />
       <PurgeConfirmationModal open={purgeOpen} onClose={() => setPurgeOpen(false)} />
+      <PurgeCatalogModal open={purgeCatalogOpen} onClose={() => setPurgeCatalogOpen(false)} />
     </div>
   );
 };

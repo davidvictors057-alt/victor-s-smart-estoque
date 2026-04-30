@@ -305,18 +305,29 @@ export const CameraView = ({
                 {mode === "photo" ? (
                   <div className="h-12 w-12 rounded-full bg-primary shadow-[0_0_20px_rgba(0,163,255,0.6)]" />
                 ) : (
-                  <ScanLine className={`h-8 w-8 text-success ${ready ? 'animate-pulse' : ''}`} />
+                  <div className="relative flex items-center justify-center">
+                    <ScanLine className={`h-8 w-8 text-success ${ready ? 'animate-pulse' : ''}`} />
+                    {multiScan && capturedCount > 0 && (
+                      <motion.div 
+                        layoutId="counter"
+                        className="absolute -top-1 -right-1 bg-white text-black text-[8px] font-black h-4 w-4 rounded-full flex items-center justify-center border border-black"
+                      >
+                        {capturedCount}
+                      </motion.div>
+                    )}
+                  </div>
                 )}
               </motion.button>
               
               {(multiCapture || multiScan) && capturedCount > 0 && (
                 <motion.button
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
+                  initial={{ scale: 0, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
                   onClick={onFinalize}
-                  className="absolute -top-2 -right-16 bg-success py-2 px-4 rounded-xl text-black font-black text-[9px] shadow-glow-green uppercase tracking-tighter"
+                  className="absolute -top-14 left-1/2 -translate-x-1/2 bg-success py-3 px-8 rounded-full text-black font-black text-[10px] shadow-[0_0_30px_rgba(34,197,94,0.4)] uppercase tracking-widest flex items-center gap-2 whitespace-nowrap z-20 border-2 border-white/20"
                 >
-                  AUDITAR AGORA
+                  <Zap className="h-3 w-3" />
+                  CONCLUIR LOTE
                 </motion.button>
               )}
             </div>

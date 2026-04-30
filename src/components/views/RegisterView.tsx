@@ -1,16 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Tag, DollarSign, Camera, CheckCircle2, RefreshCw, Zap, Trash2, Percent, Fingerprint, Package, ScanLine, X, ChevronRight, Maximize2 } from "lucide-react";
+import { Plus, Minus, Tag, DollarSign, Camera, CheckCircle2, RefreshCw, Zap, Trash2, Percent, Fingerprint, Package, ScanLine, X, ChevronRight, Maximize2, Search, BookOpen } from "lucide-react";
+import { CatalogAuditHUD } from "@/components/CatalogAuditHUD";
+import { SearchByNameHUD } from "@/components/SearchByNameHUD";
 import { CameraView } from "@/components/CameraView";
 import { toast } from "sonner";
-import { useStore } from "@/store/useStore";
+import { useStore, CatalogItem } from "@/store/useStore";
+import { aiService } from "@/services/aiService";
 
 export const RegisterView = () => {
   const [pendingQueue, setPendingQueue] = useState<any[]>([]);
-  const [scannerOpen, setScannerOpen] = useState<'label_ai' | 'sku_beep' | 'imei_vision' | null>(null);
+  const [scannerOpen, setScannerOpen] = useState<'label_ai' | 'sku_beep' | 'imei_vision' | 'offline_scan' | 'audit_scan' | 'audit_photo' | 'manual_photo' | null>(null);
   const [beepingItemIndex, setBeepingItemIndex] = useState<number | null>(null);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
-  const { bulkAddProducts } = useStore();
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [auditSku, setAuditSku] = useState("");
+  const [auditPhotoUrl, setAuditPhotoUrl] = useState<string | null>(null);
+  const { bulkAddProducts, catalog } = useStore();
 
   const playBeep = () => {
     try {
@@ -30,7 +37,8 @@ export const RegisterView = () => {
       sale: 0,
       cost: 0,
       imei: '',
-      imei2: ''
+      imei2: '',
+      quantity: 1
     };
     setPendingQueue(prev => [...prev, newItem]);
     toast.success("Foto capturada!", { icon: '📸' });
@@ -46,23 +54,36 @@ export const RegisterView = () => {
       sale: 0,
       cost: 0,
       imei: '',
-      imei2: ''
+      imei2: '',
+      quantity: 1
     };
     const newIdx = pendingQueue.length;
     setPendingQueue(prev => [...prev, newItem]);
     setEditingItemIndex(newIdx); 
   };
 
+  const [batchAbortController, setBatchAbortController] = useState<AbortController | null>(null);
+
   const resolveAllWithAi = async () => {
     if (pendingQueue.length === 0) return;
-    const toastId = toast.loading("IA Vision: Processando lote...");
+    const controller = new AbortController();
+    setBatchAbortController(controller);
+    const toastId = toast.loading("IA Vision: Processando lote...", {
+      action: {
+        label: 'Parar',
+        onClick: () => {
+          controller.abort();
+          setBatchAbortController(null);
+          toast.error("Processamento de lote interrompido.");
+        }
+      }
+    });
     
     try {
-      const { aiService } = await import('@/services/aiService');
       const updatedQueue = await Promise.all(pendingQueue.map(async (item) => {
         if (item.status !== 'pending' && item.name !== 'IDENTIFICANDO...') return item;
         try {
-          const result = await aiService.analyzeProductBox(item.image_url);
+          const result = await aiService.analyzeProductBox(item.image_url, controller.signal);
           return {
             ...item,
             name: result?.name || item.name,
@@ -71,15 +92,22 @@ export const RegisterView = () => {
             imei2: result?.imei2 || item.imei2,
             status: 'resolved'
           };
-        } catch (e) {
+        } catch (e: any) {
+          if (e.name === 'AbortError') throw e;
           return { ...item, status: 'error' };
         }
       }));
 
       setPendingQueue(updatedQueue);
       toast.success("Processamento concluído!", { id: toastId });
-    } catch (error) {
-      toast.error("Falha no motor de IA.", { id: toastId });
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        toast.dismiss(toastId);
+      } else {
+        toast.error("Falha no motor de IA.", { id: toastId });
+      }
+    } finally {
+      setBatchAbortController(null);
     }
   };
 
@@ -98,7 +126,8 @@ export const RegisterView = () => {
   return (
     <div className="relative min-h-screen px-4 pb-64 pt-4">
       {/* HUD de Controle Superior */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      {/* Grid de Controle Tático - 2x2 */}
+      <div className="grid grid-cols-2 gap-3 mb-8">
         <button 
           onClick={() => setScannerOpen('label_ai')}
           className="bg-black-piano border border-primary/20 p-5 rounded-[30px] flex flex-col items-center gap-2 shadow-glow-cyan-sm active:scale-95 transition-all group"
@@ -110,13 +139,33 @@ export const RegisterView = () => {
         </button>
 
         <button 
-          onClick={addManualItem}
-          className="bg-white/5 border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group"
+          onClick={() => setScannerOpen('offline_scan')}
+          className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
         >
           <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Plus className="text-white w-6 h-6" />
+            <ScanLine className="text-white w-6 h-6" />
           </div>
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Digitar</span>
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">Offline Vision</span>
+        </button>
+
+        <button 
+          onClick={() => setAuditOpen(true)}
+          className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <BookOpen className="text-white/60 w-6 h-6" />
+          </div>
+          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Auditoria</span>
+        </button>
+
+        <button 
+          onClick={() => setSearchOpen(true)}
+          className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Search className="text-white/60 w-6 h-6" />
+          </div>
+          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Busca Nome</span>
         </button>
       </div>
 
@@ -181,20 +230,26 @@ export const RegisterView = () => {
         title={
           scannerOpen === 'label_ai' ? "Vision Capture" : 
           scannerOpen === 'imei_vision' ? "Extração de Seriais" :
+          scannerOpen === 'offline_scan' ? "Offline Vision (Catalog)" :
+          scannerOpen === 'audit_scan' ? "Auditoria de SKU" :
+          scannerOpen === 'audit_photo' ? "Foto de Catálogo" :
+          scannerOpen === 'manual_photo' ? "Captura de Evidência" :
           "Vision Scanner"
         } 
-        mode={scannerOpen === 'sku_beep' ? 'scan' : 'photo'}
+        mode={(scannerOpen === 'sku_beep' || scannerOpen === 'offline_scan' || scannerOpen === 'audit_scan') ? 'scan' : 'photo'}
         multiCapture={scannerOpen === 'label_ai'}
+        multiScan={scannerOpen === 'offline_scan'}
         capturedCount={pendingQueue.length}
         onCapture={(img) => {
           // A captura do Cadastro (Lote) sempre vai para a fila
           if (scannerOpen === 'label_ai') {
             handleCapture(img);
-          } 
-          // Capturas específicas do HUD são tratadas pelo próprio HUD (via emit/event ou callback injetado)
-          // Mas como CameraView é global aqui, vamos disparar um evento customizado que o HUD escuta
-          if (scannerOpen === 'imei_vision') {
-            window.dispatchEvent(new CustomEvent('imei-captured', { detail: { img } }));
+          } else if (scannerOpen === 'audit_photo') {
+            setAuditPhotoUrl(img);
+            setScannerOpen(null);
+
+          } else if (scannerOpen === 'manual_photo' && editingItemIndex !== null) {
+            setPendingQueue(prev => prev.map((it, i) => i === editingItemIndex ? { ...it, image_url: img } : it));
             setScannerOpen(null);
           }
         }}
@@ -209,6 +264,39 @@ export const RegisterView = () => {
             setBeepingItemIndex(null);
             setScannerOpen(null);
             toast.success(`SKU Bipado: ${code}`, { position: 'top-center' });
+          } else if (scannerOpen === 'offline_scan') {
+            playBeep();
+            const { catalog, products } = useStore.getState();
+            const cleanCode = code.trim();
+            
+            // Busca tática: Catálogo > Histórico de Produtos
+            const fromCatalog = catalog.find(c => c.sku.trim() === cleanCode);
+            const fromHistory = products.find(p => p.sku?.trim() === cleanCode);
+            
+            const newItem = {
+              id: Math.random().toString(36).substr(2, 9),
+              image_url: fromCatalog?.image_url || fromHistory?.image_url || '',
+              name: fromCatalog?.name || fromHistory?.name || `NOVO SKU: ${code}`,
+              sku: code,
+              status: 'resolved',
+              sale: fromCatalog?.sale ?? fromHistory?.sale ?? 0,
+              cost: fromCatalog?.cost ?? fromHistory?.cost ?? 0,
+              imei: '',
+              imei2: '',
+              quantity: 1
+            };
+            
+            setPendingQueue(prev => [...prev, newItem]);
+            toast.success(`Adicionado via Catálogo: ${newItem.name}`, { 
+              position: 'top-center',
+              icon: '📦'
+            });
+          } else if (scannerOpen === 'audit_scan') {
+            playBeep();
+            setAuditSku(code);
+            setScannerOpen(null);
+            setAuditOpen(true);
+            toast.success(`SKU para Auditoria: ${code}`, { position: 'top-center' });
           }
         }}
         onFinalize={() => setScannerOpen(null)}
@@ -217,7 +305,7 @@ export const RegisterView = () => {
       {/* HUD de Edição Detalhada (Tela Cheia) */}
       <AnimatePresence>
         {editingItemIndex !== null && (
-          <ProductEditorHUD 
+          <ManualEntryModal 
             item={pendingQueue[editingItemIndex]}
             onClose={() => setEditingItemIndex(null)}
             onSave={(updates: any) => {
@@ -231,9 +319,31 @@ export const RegisterView = () => {
             onScanIMEIs={() => {
               setScannerOpen('imei_vision');
             }}
+            onScanPhoto={() => {
+              setScannerOpen('manual_photo');
+            }}
           />
         )}
       </AnimatePresence>
+      <CatalogAuditHUD 
+        open={auditOpen} 
+        onClose={() => {
+          setAuditOpen(false);
+          setAuditPhotoUrl(null); // Limpar ao fechar
+        }} 
+        initialSku={auditSku}
+        onScanRequest={() => setScannerOpen('audit_scan')}
+        onPhotoRequest={() => setScannerOpen('audit_photo')}
+        capturedPhoto={auditPhotoUrl}
+      />
+      <SearchByNameHUD
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelect={(item) => {
+          setAuditSku(item.sku);
+          setAuditOpen(true);
+        }}
+      />
     </div>
   );
 };
@@ -263,6 +373,12 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
           </div>
         )}
         
+        {item.quantity > 1 && (
+          <div className="absolute top-2 left-2 z-10 bg-primary text-black font-black text-[10px] px-2 py-0.5 rounded-full shadow-glow-cyan animate-pulse">
+            {item.quantity}X
+          </div>
+        )}
+        
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
           <p className="text-[9px] font-black text-white uppercase truncate tracking-tight italic">
             {item.name || "PENDENTE"}
@@ -281,37 +397,116 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
   );
 };
 
-const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any) => {
-  const [data, setData] = useState({ ...item });
+interface ManualEntryModalProps {
+  item: any;
+  onSave: (data: any) => void;
+  onClose: () => void;
+  onScanSKU: () => void;
+  onScanIMEIs: () => void;
+  onScanPhoto: () => void;
+}
+
+const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onScanPhoto }: ManualEntryModalProps) => {
+  const { catalog, products } = useStore();
+  const [data, setData] = useState(item);
   const [loading, setLoading] = useState(false);
 
-  // Sincronizar dados apenas para campos que foram atualizados via Scanner externo (Ex: SKU)
+  // AUTO-FILL LOGIC: Listen to SKU changes
   useEffect(() => {
-    if (item.sku !== data.sku) {
-      setData(prev => ({ ...prev, sku: item.sku, name: item.name || prev.name }));
+    if (data.sku && data.sku.length > 3) {
+      const existing = products.find(p => p.sku === data.sku || p.imei === data.sku);
+      const inCatalog = catalog.find(c => c.sku === data.sku);
+      
+      if (existing || inCatalog) {
+        const foundName = existing?.name || inCatalog?.name;
+        if (foundName && !data.name) {
+          setData(prev => ({ ...prev, name: foundName }));
+          toast.success(`Produto Identificado: ${foundName}`, {
+            description: "Dados recuperados do catálogo."
+          });
+        }
+      }
     }
-  }, [item.sku, item.name]);
+  }, [data.sku, products, catalog, data.name]);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const lastSkuRef = useRef(item.sku);
+  const lastItemNameRef = useRef(item.name);
+  const lastPhotoRef = useRef(item.image_url);
+
+  // Sincronização Cirúrgica via Referência:
+  // Detecta se houve uma mudança REAL vinda do componente pai (ex: Bip Scanner)
+  useEffect(() => {
+    const skuChangedExternally = item.sku !== lastSkuRef.current;
+    const photoChangedExternally = item.image_url !== lastPhotoRef.current;
+    const isNewNameReal = item.name && item.name !== 'Identificando...' && item.name !== lastItemNameRef.current;
+
+    if (skuChangedExternally || isNewNameReal || photoChangedExternally) {
+      setData(prev => ({ 
+        ...prev, 
+        sku: skuChangedExternally ? item.sku : prev.sku,
+        name: isNewNameReal ? item.name : prev.name,
+        image_url: photoChangedExternally ? item.image_url : prev.image_url
+      }));
+      
+      // Atualiza as refs para o próximo ciclo
+      lastSkuRef.current = item.sku;
+      lastItemNameRef.current = item.name;
+      lastPhotoRef.current = item.image_url;
+    }
+  }, [item.sku, item.name, item.image_url]);
+
+  const stopAi = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (abortController) {
+      console.log("🛑 Interrompendo Cérebro Neural...");
+      try {
+        abortController.abort();
+      } catch (err) {
+        console.error("Erro ao abortar:", err);
+      }
+      setAbortController(null);
+      setLoading(false);
+      toast.error("Operação interrompida", { icon: '🛑' });
+    }
+  };
 
   // Listener para Captura de IMEI vinda da IA Vision
   useEffect(() => {
     const handleImeiVision = async (e: any) => {
+      if (loading) return;
       const { img } = e.detail;
+      const controller = new AbortController();
+      setAbortController(controller);
+      setLoading(true);
       const toastId = toast.loading("IA Vision: Extraindo seriais...");
+      
+      // Timeout de segurança de 30s
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          controller.abort();
+          toast.error("IA demorou demais para responder.");
+        }
+      }, 30000);
+
       try {
-        const { aiService } = await import('@/services/aiService');
-        const result = await aiService.analyzeProductBox(img);
+        const result = await aiService.analyzeProductBox(img, controller.signal);
         if (result) {
           setData(prev => ({
             ...prev,
-            name: result.name || prev.name,
-            sku: result.sku || prev.sku,
+            // Apenas IMEIs são atualizados no modo Raio-X para não sobrescrever SKU correto
             imei: result.imei1 || prev.imei,
             imei2: result.imei2 || prev.imei2
           }));
-          toast.success("Dados Extraídos!", { id: toastId });
+          toast.success("IMEIs Extraídos!", { id: toastId });
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
         toast.error("IA falhou na extração.", { id: toastId });
+      } finally {
+        clearTimeout(timeoutId);
+        setLoading(false);
+        setAbortController(null);
+        toast.dismiss(toastId);
       }
     };
 
@@ -322,12 +517,21 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
   const margin = data.cost > 0 ? ((data.sale - data.cost) / data.cost) * 100 : 0;
 
   const quickAiName = async () => {
-    if (!item.image_url) return;
+    if (!item.image_url || loading) return;
+    const controller = new AbortController();
+    setAbortController(controller);
     setLoading(true);
     const toastId = toast.loading("Analisando evidência...");
+
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        controller.abort();
+        toast.error("Aguardando IA tempo demais...");
+      }
+    }, 30000);
+
     try {
-      const { aiService } = await import('@/services/aiService');
-      const result = await aiService.analyzeProductBox(item.image_url);
+      const result = await aiService.analyzeProductBox(item.image_url, controller.signal);
       if (result) {
         setData(prev => ({
           ...prev,
@@ -338,10 +542,14 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
         }));
         toast.success("Dados Atualizados", { id: toastId });
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       toast.error("IA falhou", { id: toastId });
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
+      setAbortController(null);
+      toast.dismiss(toastId);
     }
   };
 
@@ -364,9 +572,12 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
             </button>
           </div>
 
-          <div className="w-full aspect-video rounded-[35px] bg-white/5 border border-white/10 overflow-hidden relative group">
-            {item.image_url ? (
-              <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+          <div 
+            onClick={onScanPhoto}
+            className="w-full aspect-video rounded-[35px] bg-white/5 border border-white/10 overflow-hidden relative group cursor-pointer hover:border-primary/50 transition-all"
+          >
+            {data.image_url ? (
+              <img src={data.image_url} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-4 opacity-10">
                 <Package className="w-16 h-16" />
@@ -374,16 +585,24 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
               </div>
             )}
             
-            {item.image_url && (
+            {data.image_url && (
               <button 
-                onClick={quickAiName}
-                disabled={loading}
-                className="absolute bottom-6 right-6 bg-primary px-6 py-3 rounded-2xl text-black font-black uppercase text-[10px] shadow-glow-cyan flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  loading ? stopAi() : quickAiName();
+                }}
+                className={`absolute bottom-6 right-6 px-6 py-3 rounded-2xl font-black uppercase text-[10px] shadow-glow-cyan flex items-center gap-2 active:scale-95 transition-all ${
+                  loading ? 'bg-red-500 text-white shadow-red-500/50' : 'bg-primary text-black'
+                }`}
               >
-                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
-                Preencher via IA
+                {loading ? <X className="w-4 h-4" /> : <Zap className="w-4 h-4 fill-current" />}
+                {loading ? "PARAR IA" : "Preencher via IA"}
               </button>
             )}
+            
+            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+              <p className="text-[8px] font-black text-white uppercase">Clique para trocar foto</p>
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -423,7 +642,10 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
                   <input 
                     type="number"
                     value={data.cost || ''}
-                    onChange={e => setData({...data, cost: Number(e.target.value)})}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setData({...data, cost: val === '' ? 0 : Number(val)});
+                    }}
                     placeholder="0.00"
                     className="w-full bg-transparent text-lg font-black text-white outline-none"
                   />
@@ -436,7 +658,10 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
                   <input 
                     type="number"
                     value={data.sale || ''}
-                    onChange={e => setData({...data, sale: Number(e.target.value)})}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setData({...data, sale: val === '' ? 0 : Number(val)});
+                    }}
                     placeholder="0.00"
                     className="w-full bg-transparent text-lg font-black text-white outline-none"
                   />
@@ -500,6 +725,34 @@ const ProductEditorHUD = ({ item, onClose, onSave, onScanSKU, onScanIMEIs }: any
                   />
                 </div>
               </div>
+            </div>
+
+            {/* SELETOR DE QUANTIDADE TÁTICO */}
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <label className="text-[10px] text-white/30 font-black uppercase tracking-widest ml-4">Volume do Lote</label>
+              <div className="flex items-center justify-center gap-8 bg-white/5 border border-white/10 rounded-[35px] p-4">
+                <button 
+                  onClick={() => setData(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
+                  className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white transition-all active:scale-90"
+                >
+                  <Minus className="w-6 h-6" />
+                </button>
+                
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-black text-primary drop-shadow-glow-cyan">{data.quantity}</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20 mt-1">UNIDADES</span>
+                </div>
+
+                <button 
+                  onClick={() => setData(prev => ({ ...prev, quantity: prev.quantity + 1 }))}
+                  className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary hover:text-black transition-all active:scale-90 shadow-glow-cyan-sm"
+                >
+                  <Plus className="w-6 h-6" />
+                </button>
+              </div>
+              <p className="text-[9px] font-black text-center text-white/20 uppercase tracking-[0.2em]">
+                {data.quantity > 1 ? `Lote de ${data.quantity} unidades (Apenas a primeira terá IMEI)` : "Unidade única"}
+              </p>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanLine, ArrowDownToLine, ArrowUpFromLine, Camera, Hash, Tag, X, Check, Image as ImageIcon, Package } from "lucide-react";
+import { ScanLine, ArrowDownToLine, ArrowUpFromLine, Camera, Hash, Tag, X, Check, Image as ImageIcon, Package, Plus, Minus } from "lucide-react";
 import { CameraView } from "@/components/CameraView";
 import { ManualInputModal } from "@/components/ManualInputModal";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ export const EmployeeHUD = () => {
   const [action, setAction] = useState<Action>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [manualInputOpen, setManualInputOpen] = useState(false);
-  const [scannedImei, setScannedImei] = useState("");
+  const [lastScannedCode, setLastScannedCode] = useState("");
 
   const todayStr = new Date().toISOString().split('T')[0];
   const myMovementsToday = movements.filter(m => m.operator_id === currentUser?.id && m.timestamp?.startsWith(todayStr));
@@ -32,28 +32,29 @@ export const EmployeeHUD = () => {
     { label: "Saídas", value: myMovementsToday.filter(m => m.type === 'out').length.toString(), color: "text-danger" },
   ];
 
-  const handleSubmit = async (productName: string, identifier: string, qty: number = 1) => {
+  const handleSubmit = async (productName: string, sku: string, imei: string, qty: number = 1) => {
     if (!action || !currentUser) return;
     
     const toastId = toast.loading(`Processando ${qty} unidades...`);
     try {
       if (action === "in") {
-        await addProduct({
-          name: productName,
-          sku: identifier,
-          imei: identifier.trim() || null,
-          quantity: qty,
-          status: 'in_stock',
-          brand: "Geral",
-          category: "Smartphone",
-          spec: "Padrão",
-          cost: 0,
-          sale: 0,
-          image_url: "" 
-        });
+          await addProduct({
+            name: productName,
+            sku: sku || imei,
+            imei: imei.trim() || null,
+            imei2: null,
+            quantity: qty,
+            status: 'in_stock',
+            brand: "Geral",
+            category: "Smartphone",
+            spec: "Padrão",
+            cost: 0,
+            sale: 0,
+            image_url: "" 
+          });
       } else {
         // --- LÓGICA DE SAÍDA TÁTICA (MODO TANTO FAZ) ---
-        const normInput = identifier?.trim() || "";
+        const normInput = (sku || imei || "").trim();
         const normName = productName?.trim().toLowerCase() || "";
 
         let potentialTargets = products.filter(p => p.status === 'in_stock');
@@ -110,7 +111,7 @@ export const EmployeeHUD = () => {
       }
 
       setAction(null);
-      setScannedImei("");
+      setLastScannedCode("");
       toast.success("Operação concluída!", { id: toastId });
     } catch (err) {
       console.error(err);
@@ -120,15 +121,17 @@ export const EmployeeHUD = () => {
 
 
   const handleScan = (code: string) => {
-    setScannedImei(code);
+    setLastScannedCode(code);
     
-    // AUTO-FILL SEARCH
+    // AUTO-FILL SEARCH (DATABASE + CATALOG)
     const existing = products.find(p => p.imei === code || p.sku === code);
-    if (existing) {
-      toast.success(`Produto Identificado: ${existing.name}`, {
+    const catalogItem = useStore.getState().catalog.find(c => c.sku === code);
+    
+    if (existing || catalogItem) {
+      const name = existing?.name || catalogItem?.name;
+      toast.success(`Produto Identificado: ${name}`, {
         description: "Os dados foram pré-preenchidos.",
       });
-      // We can use a ref or state to pass this to the modal
     } else {
       toast.info(`Código ${code} capturado`, {
         description: "Produto novo. Prossiga com o preenchimento.",
@@ -336,10 +339,10 @@ export const EmployeeHUD = () => {
         {action && (
           <RegisterModal 
             action={action} 
-            initialImei={scannedImei}
+            initialCode={lastScannedCode}
             onClose={() => {
               setAction(null);
-              setScannedImei("");
+              setLastScannedCode("");
             }} 
             onSubmit={handleSubmit} 
           />
@@ -365,40 +368,51 @@ export const EmployeeHUD = () => {
 
 interface RegisterModalProps {
   action: "in" | "out";
-  initialImei?: string;
+  initialCode?: string;
   onClose: () => void;
-  onSubmit: (product: string, imei: string, qty: number) => void;
+  onSubmit: (product: string, sku: string, imei: string, qty: number) => void;
 }
 
-const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModalProps) => {
-  const { products } = useStore();
-  const existing = products.find(p => p.imei === initialImei || p.sku === initialImei);
+const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModalProps) => {
+  const { products, catalog } = useStore();
   
-  const [product, setProduct] = useState(existing?.name || "");
-  const [imei, setImei] = useState(initialImei || "");
+  // TACTICAL SEARCH: Try stock first, then catalog
+  const existingProduct = products.find(p => p.imei === initialCode || p.sku === initialCode);
+  const catalogItem = catalog.find(c => c.sku === initialCode);
+  
+  const [product, setProduct] = useState(existingProduct?.name || catalogItem?.name || "");
+  const [sku, setSku] = useState(catalogItem?.sku || existingProduct?.sku || "");
+  const [imei, setImei] = useState(existingProduct?.imei || "");
   const [quantity, setQuantity] = useState("1");
   const [imei2, setImei2] = useState("");
   const [showImei2, setShowImei2] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState<"imei1" | "imei2" | null>(null);
+  const [scannerOpen, setScannerOpen] = useState<"sku" | "imei1" | "imei2" | null>(null);
 
-  // Synchronize state when initialImei changes (e.g. after a scan while modal is open)
+  // Synchronize state when initialCode changes (e.g. after a scan while modal is open)
   useEffect(() => {
-    if (initialImei) {
-      const found = products.find(p => p.imei === initialImei || p.sku === initialImei);
-      if (found) {
-        setProduct(found.name);
-        // TACTICAL FIX: If identified by SKU, we store it but allow imei field to be empty for new entry
-        // On Stock Out, we MUST ensure the identifier reaches the handleSubmit
-        if (found.sku === initialImei && found.imei !== initialImei) {
-          setImei(""); // Clear for visual UI, but initialImei is still in the parent state
+    if (initialCode) {
+      const found = products.find(p => p.imei === initialCode || p.sku === initialCode);
+      const inCatalog = catalog.find(c => c.sku === initialCode);
+      
+      if (found || inCatalog) {
+        setProduct(found?.name || inCatalog?.name || "");
+        
+        // INTELLIGENT ROUTING
+        if (inCatalog || found?.sku === initialCode) {
+          setSku(initialCode);
         } else {
-          setImei(initialImei);
+          setImei(initialCode);
         }
       } else {
-        setImei(initialImei);
+        // Unknown code: If SKU is empty, put it there, otherwise IMEI
+        if (!sku) {
+          setSku(initialCode);
+        } else {
+          setImei(initialCode);
+        }
       }
     }
-  }, [initialImei, products]);
+  }, [initialCode]);
 
   const isIn = action === "in";
 
@@ -460,6 +474,23 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
                   CADASTRADO
                 </div>
               )}
+            </div>
+          </Field>
+
+          <Field icon={ScanLine} label="SKU / Código do Produto" mono>
+            <div className="flex items-center gap-2">
+              <input
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder="Ex: SKU-12345"
+                className="font-mono-tactical w-full bg-transparent text-sm tracking-wider text-primary outline-none placeholder:text-muted-foreground/60"
+              />
+              <button 
+                onClick={() => setScannerOpen("sku")}
+                className="text-primary hover:text-primary/80 transition-all active:scale-90"
+              >
+                <ScanLine className="h-5 w-5 drop-shadow-glow-cyan" />
+              </button>
             </div>
           </Field>
 
@@ -525,31 +556,47 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
           <CameraView
             open={!!scannerOpen}
             onClose={() => setScannerOpen(null)}
-            title={`Escanear ${scannerOpen === 'imei1' ? 'IMEI 1' : 'IMEI 2'}`}
+            title={`Escanear ${scannerOpen === 'sku' ? 'SKU' : scannerOpen === 'imei1' ? 'IMEI 1' : 'IMEI 2'}`}
             mode="scan"
             onScan={(code) => {
-              if (scannerOpen === 'imei1') setImei(code);
+              if (scannerOpen === 'sku') setSku(code);
+              else if (scannerOpen === 'imei1') setImei(code);
               else if (scannerOpen === 'imei2') setImei2(code);
               setScannerOpen(null);
             }}
           />
 
           <Field icon={Package} label="Quantidade (Lote)">
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                onBlur={() => {
-                  if (!quantity || parseInt(quantity) < 1) setQuantity("1");
-                }}
-                className="w-full bg-transparent text-sm font-black text-primary outline-none"
-              />
-              <div className="flex gap-1">
-                {[5, 10].map(n => (
-                  <button key={n} onClick={() => setQuantity(n.toString())} className="rounded bg-primary/10 px-2 py-1 text-[8px] font-black text-primary">+{n}</button>
-                ))}
+            <div className="flex items-center justify-between bg-white/[0.03] rounded-2xl p-1 border border-white/5">
+              <button 
+                type="button"
+                onClick={() => setQuantity(prev => Math.max(1, (parseInt(prev) || 0) - 1).toString())}
+                className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white transition-all active:scale-90"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              
+              <div className="flex flex-col items-center flex-1">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  onBlur={() => {
+                    if (!quantity || parseInt(quantity) < 1) setQuantity("1");
+                  }}
+                  className="w-full bg-transparent text-center text-2xl font-black text-primary outline-none"
+                />
+                <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.2em] -mt-1">Unidades</span>
               </div>
+
+              <button 
+                type="button"
+                onClick={() => setQuantity(prev => ((parseInt(prev) || 0) + 1).toString())}
+                className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary hover:text-black transition-all active:scale-90 shadow-glow-cyan-sm"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
           </Field>
 
@@ -575,7 +622,7 @@ const RegisterModal = ({ action, initialImei, onClose, onSubmit }: RegisterModal
             </button>
             <motion.button
               whileTap={{ scale: 0.96 }}
-              onClick={() => onSubmit(product, imei || initialImei || "", parseInt(quantity) || 1)}
+              onClick={() => onSubmit(product, sku || "", imei || "", parseInt(quantity) || 1)}
               className={`btn-tactical flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold ${
                 isIn
                   ? "bg-success text-success-foreground shadow-glow-success"

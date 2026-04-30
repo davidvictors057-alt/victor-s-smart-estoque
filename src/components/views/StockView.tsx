@@ -18,7 +18,7 @@ export const StockView = () => {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [insightOpen, setInsightOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
-  const { products, deleteProduct, updateProduct } = useStore();
+  const { products, deleteProductsBulk, updateProductsBulk } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
 
@@ -186,9 +186,7 @@ export const StockView = () => {
                 const toastId = toast.loading("Removendo do estoque...");
                 try {
                   const targets = products.filter(p => p.name === selectedItem.name && p.spec === selectedItem.spec);
-                  for (const p of targets) {
-                    await deleteProduct(p.id);
-                  }
+                  await deleteProductsBulk(targets.map(p => p.id));
                   setSelectedItem(null);
                   toast.success("Estoque removido com sucesso", { id: toastId });
                 } catch (err) {
@@ -235,9 +233,7 @@ export const StockView = () => {
         mode="photo" 
         onCapture={async (url) => {
           const targets = products.filter(p => p.name === selectedItem.name && p.spec === selectedItem.spec);
-          for (const p of targets) {
-            await updateProduct(p.id, { image_url: url });
-          }
+          await updateProductsBulk(targets.map(p => p.id), { image_url: url });
           setCamOpen(false);
           setSelectedItem(null);
           toast.success("Foto atualizada em lote");
@@ -249,8 +245,28 @@ export const StockView = () => {
 };
 
 const AddProductModal = ({ onClose }: { onClose: () => void }) => {
+  const { products, addProduct, catalog } = useStore();
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
+
+  // AUTO-FILL LOGIC: Listen to SKU changes
+  useEffect(() => {
+    if (sku && sku.length > 3) {
+      const existing = products.find(p => p.sku === sku || p.imei === sku);
+      const inCatalog = catalog.find(c => c.sku === sku);
+      
+      if (existing || inCatalog) {
+        const foundName = existing?.name || inCatalog?.name;
+        if (foundName && !name) {
+          setName(foundName);
+          toast.success(`Produto Identificado: ${foundName}`, {
+            description: "Dados recuperados do catálogo."
+          });
+        }
+      }
+    }
+  }, [sku, products, catalog, name]);
+
   const [imei, setImei] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [camOpen, setCamOpen] = useState(false);
@@ -260,8 +276,9 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
   const [cost, setCost] = useState(0);
   const [sale, setSale] = useState(0);
   const [spec, setSpec] = useState("Novo");
+  const [imei2, setImei2] = useState("");
   
-  const { addProduct, products } = useStore();
+
 
   useEffect(() => {
     if (sku || imei) {
@@ -342,22 +359,32 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
               />
             </div>
 
+            <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
+              <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">SKU / CÓDIGO</div>
+              <input
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder="BIPE AQUI"
+                className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-primary outline-none placeholder:text-white/5"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">SKU / CÓDIGO</div>
-                <input
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  placeholder="BIPE AQUI"
-                  className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-primary outline-none placeholder:text-white/5"
-                />
-              </div>
-              <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">IMEI (OPCIONAL)</div>
+                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">IMEI 1</div>
                 <input
                   value={imei}
                   onChange={(e) => setImei(e.target.value)}
                   placeholder="123456..."
+                  className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-white outline-none placeholder:text-white/5"
+                />
+              </div>
+              <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
+                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">IMEI 2</div>
+                <input
+                  value={imei2}
+                  onChange={(e) => setImei2(e.target.value)}
+                  placeholder="OPCIONAL"
                   className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-white outline-none placeholder:text-white/5"
                 />
               </div>
@@ -366,15 +393,31 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
                 <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">QUANTIDADE</div>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10">-</button>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                    className="font-mono-tactical w-full bg-transparent text-center font-black text-lg text-primary outline-none"
-                  />
-                  <button onClick={() => setQuantity(quantity + 1)} className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary/30">+</button>
+                <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-[2rem] p-2 gap-2 shadow-inner">
+                  <button 
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))} 
+                    className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10 active:scale-90 transition-all border border-white/5"
+                  >
+                    <Minus className="h-6 w-6" />
+                  </button>
+                  
+                  <div className="flex-1 flex flex-col items-center justify-center relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={quantity}
+                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                      className="w-full bg-transparent text-center font-black text-3xl text-primary outline-none drop-shadow-glow-cyan"
+                    />
+                    <div className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20 -mt-1">VOLUME</div>
+                  </div>
+
+                  <button 
+                    onClick={() => setQuantity(quantity + 1)} 
+                    className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary/30 active:scale-90 transition-all border border-primary/20 shadow-glow-cyan-sm"
+                  >
+                    <Plus className="h-6 w-6" />
+                  </button>
                 </div>
               </div>
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
@@ -409,6 +452,7 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
                     name,
                     sku,
                     imei: (imei || "N/A"),
+                    imei2: (imei2 || null),
                     spec,
                     brand,
                     category,
@@ -498,27 +542,39 @@ const ActionSheet = ({ item, onClose, onEdit, onDelete, onCamera }: any) => (
 );
 
 const EditProductModal = ({ item, onClose }: any) => {
-  const { products, updateProduct } = useStore();
+  const { products, updateProductsBulk } = useStore();
   const [name, setName] = useState(item.name);
-  const [cost, setCost] = useState(item.cost.toString());
-  const [sale, setSale] = useState(item.sale.toString());
+  const [cost, setCost] = useState(item.cost?.toString() || "0");
+  const [sale, setSale] = useState(item.sale?.toString() || "0");
+  const [photo, setPhoto] = useState(item.image_url);
+  const [camOpen, setCamOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error("O nome do produto não pode estar vazio");
+      return;
+    }
+
     setIsSaving(true);
     const toastId = toast.loading("Atualizando estoque...");
     try {
       const targets = products.filter(p => p.name === item.name && p.spec === item.spec);
-      for (const p of targets) {
-        await updateProduct(p.id, {
-          name,
-          cost: parseFloat(cost),
-          sale: parseFloat(sale)
-        });
-      }
+      const targetIds = targets.map(p => p.id);
+      
+      const updates = {
+        name: name.trim(),
+        cost: Math.max(0, parseFloat(cost) || 0),
+        sale: Math.max(0, parseFloat(sale) || 0),
+        image_url: photo
+      };
+
+      await updateProductsBulk(targetIds, updates);
+      
       toast.success("Dados atualizados em lote!", { id: toastId });
       onClose();
     } catch (err) {
+      console.error("Erro no salvamento:", err);
       toast.error("Erro na atualização", { id: toastId });
     } finally {
       setIsSaving(false);
@@ -530,35 +586,76 @@ const EditProductModal = ({ item, onClose }: any) => {
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-black-piano neon-blue-border w-full max-w-lg rounded-[2.5rem] p-8"
+        className="bg-black-piano neon-blue-border w-full max-w-lg rounded-[2.5rem] p-8 overflow-y-auto max-h-[90vh]"
       >
-        <div className="mb-8">
-          <div className="font-mono-tactical text-[10px] font-black text-primary tracking-[0.4em] uppercase">MÓDULO DE EDIÇÃO</div>
-          <div className="text-2xl font-black text-white">Ajuste de Catálogo</div>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <div className="font-mono-tactical text-[10px] font-black text-primary tracking-[0.4em] uppercase">MÓDULO DE EDIÇÃO</div>
+            <div className="text-2xl font-black text-white">Ajuste de Catálogo</div>
+          </div>
+          <button onClick={onClose} className="text-white/20 hover:text-white"><X /></button>
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary">
-            <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2">NOME DO MODELO</label>
-            <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-transparent font-bold text-white outline-none" />
+          {/* Foto Edit */}
+          <div className="relative group aspect-video w-full overflow-hidden rounded-3xl border-2 border-white/5 bg-black/40 shadow-inner">
+            <img 
+              src={photo || "/products/placeholder.png"} 
+              alt="" 
+              className="h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-80" 
+            />
+            <button 
+              onClick={() => setCamOpen(true)}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <Camera className="h-8 w-8 text-primary shadow-glow-cyan" />
+              <span className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-primary">ALTERAR FOTO</span>
+            </button>
+          </div>
+
+          <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
+            <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2 tracking-widest">NOME DO MODELO</label>
+            <input 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              className="w-full bg-transparent font-black text-lg text-white outline-none" 
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary">
-              <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2">CUSTO (R$)</label>
-              <input type="number" value={cost} onChange={e => setCost(e.target.value)} className="w-full bg-transparent font-bold text-white outline-none" />
+            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
+              <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2 tracking-widest">CUSTO (R$)</label>
+              <input 
+                type="number" 
+                value={cost} 
+                onChange={e => setCost(e.target.value)} 
+                className="w-full bg-transparent font-mono-tactical font-black text-white outline-none" 
+              />
             </div>
-            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary">
-              <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2">VENDA (R$)</label>
-              <input type="number" value={sale} onChange={e => setSale(e.target.value)} className="w-full bg-transparent font-bold text-white outline-none" />
+            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
+              <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2 tracking-widest">VENDA (R$)</label>
+              <input 
+                type="number" 
+                value={sale} 
+                onChange={e => setSale(e.target.value)} 
+                className="w-full bg-transparent font-mono-tactical font-black text-primary outline-none" 
+              />
             </div>
           </div>
         </div>
 
         <div className="mt-10 flex gap-4">
-          <button onClick={onClose} className="flex-1 rounded-2xl bg-white/5 py-4 font-black text-white/30 text-xs">CANCELAR</button>
-          <button onClick={handleSave} disabled={isSaving} className="flex-1 rounded-2xl bg-primary py-4 font-black text-black text-xs shadow-glow-cyan">SALVAR ALTERAÇÕES</button>
+          <button onClick={onClose} className="flex-1 rounded-2xl bg-white/5 py-5 font-black text-white/30 text-xs tracking-[0.2em]">CANCELAR</button>
+          <button 
+            onClick={handleSave} 
+            disabled={isSaving} 
+            className="flex-1 rounded-2xl bg-primary py-5 font-black text-black text-xs tracking-[0.2em] shadow-glow-cyan active:scale-95 transition-transform"
+          >
+            {isSaving ? "PROCESSANDO..." : "SALVAR ALTERAÇÕES"}
+          </button>
         </div>
+
+        <CameraView open={camOpen} onClose={() => setCamOpen(false)} title="Capturar Foto" mode="photo" onCapture={setPhoto} />
       </motion.div>
     </div>
   );
@@ -607,8 +704,13 @@ const ProductViewModal = ({ item, onClose }: any) => (
         </div>
 
         <div className="rounded-xl bg-white/5 p-3 border-l-2 border-primary/50">
-          <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase">CÓDIGO SKU / IMEI</div>
-          <div className="font-mono-tactical text-[10px] font-bold text-white tracking-widest truncate">{item.sku || item.imei || "N/A"}</div>
+          <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase">SKU / IDENTIFICADORES</div>
+          <div className="font-mono-tactical text-[10px] font-bold text-white tracking-widest truncate">
+            {item.sku && <div>SKU: {item.sku}</div>}
+            {item.imei && item.imei !== 'N/A' && <div>IMEI 1: {item.imei}</div>}
+            {item.imei2 && <div>IMEI 2: {item.imei2}</div>}
+            {!item.sku && (!item.imei || item.imei === 'N/A') && !item.imei2 && "N/A"}
+          </div>
         </div>
       </div>
 

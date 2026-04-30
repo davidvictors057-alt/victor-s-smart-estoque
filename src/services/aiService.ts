@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPTS } from "./prompts";
+import { toast } from "sonner";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"; // Oráculo Operacional v6.3
@@ -7,16 +8,29 @@ class AIService {
   private genAI: GoogleGenerativeAI | null = null;
 
   constructor() {
+    console.log("🧠 AI Service 3.1 Initializing...");
     if (API_KEY) {
+      console.log("✅ API Key detectada.");
       this.genAI = new GoogleGenerativeAI(API_KEY);
+    } else {
+      console.warn("❌ API Key NÃO detectada no import.meta.env.");
+      // Só dispara toast se estiver no browser
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          toast.error("Motor de IA Desativado: VITE_GEMINI_API_KEY não encontrada.", {
+            description: "Verifique seu arquivo .env e reinicie o servidor.",
+            duration: 10000
+          });
+        }, 1000);
+      }
     }
   }
 
-  private async getModel() {
-    if (!this.genAI) throw new Error("Cérebro Offline: API Key não configurada.");
+  private async getModel(customSystemPrompt?: string) {
+    if (!this.genAI) throw new Error("Cérebro Offline: VITE_GEMINI_API_KEY não encontrada no sistema.");
     return this.genAI.getGenerativeModel({ 
       model: PRIMARY_MODEL,
-      systemInstruction: SYSTEM_PROMPTS.STRATEGIC_CHAT 
+      systemInstruction: customSystemPrompt || SYSTEM_PROMPTS.STRATEGIC_CHAT 
     });
   }
 
@@ -126,8 +140,9 @@ class AIService {
       };
     } catch (error: any) {
       console.error("AI Strategic Error:", error);
+      const errorMsg = error.message || "Erro de conexão 3.1";
       return { 
-        text: `🧠 FALHA NEURAL: ${error.message || "Erro desconhecido na conexão 3.1"}. Verifique se a API Key suporta este modelo Preview.`, 
+        text: `🧠 FALHA NEURAL (v3.1): ${errorMsg}. Verifique a API Key ou cota do modelo Preview.`, 
         time: parseFloat(((performance.now() - startTime) / 1000).toFixed(2)),
         model: "ERROR"
       };
@@ -171,7 +186,7 @@ class AIService {
     }
   }
 
-  async auditMultiModal(video: { data: string, mimeType: string }, contextType: 'stock' | 'invoice', contextData: any) {
+  async auditMultiModal(video: { data: string, mimeType: string }, contextType: 'stock' | 'invoice', contextData: any, signal?: AbortSignal) {
     try {
       const model = await this.getModel();
       
@@ -209,11 +224,12 @@ class AIService {
             mimeType: video.mimeType
           }
         }
-      ]);
+      ], { signal });
 
       const response = await result.response;
       return { text: response.text() };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') throw error;
       console.error("MultiModal Audit Error:", error);
       return { text: "Falha no processamento do vídeo de auditoria." };
     }
@@ -252,7 +268,7 @@ class AIService {
     return "Cérebro em modo Simulação. Configure a API Key para insights reais.";
   }
 
-  async resolveMultipleSkus(skus: string[]) {
+  async resolveSKUs(skus: string[], signal?: AbortSignal) {
     if (!skus.length) return [];
 
     const prompt = `
@@ -268,7 +284,7 @@ class AIService {
     
     try {
       const model = await this.getModel();
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(prompt, { signal });
       const text = result.response.text();
       
       const jsonMatch = text.match(/\{.*\}/s);
@@ -276,33 +292,41 @@ class AIService {
       const parsed = JSON.parse(cleanJson);
       
       return parsed.identified || [];
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') throw error;
       console.error("Batch SKU Resolve Error:", error);
       return [];
     }
   }
 
-  async resolveProductFromSku(sku: string) {
-    const results = await this.resolveMultipleSkus([sku]);
+  async resolveProductFromSku(sku: string, signal?: AbortSignal) {
+    const results = await this.resolveSKUs([sku], signal);
     return results.length > 0 ? results[0] : null;
   }
 
-  async analyzeProductBox(base64Image: string) {
+  async analyzeProductBox(base64Image: string, signal?: AbortSignal) {
     try {
-      if (!this.genAI) throw new Error("Cérebro Offline.");
-      const model = this.genAI.getGenerativeModel({ model: PRIMARY_MODEL });
+      const model = await this.getModel(SYSTEM_PROMPTS.VISION_EXTRACTOR);
       
       const prompt = `
-        Analise esta etiqueta de logística. 
-        Retorne APENAS um JSON com os campos abaixo.
-        IMPORTANTE: O campo "name" deve seguir RIGOROSAMENTE este formato: MARCA MODELO RAM/ARMAZENAMENTO COR (Ex: REALME NOTE 60 4/128GB PRETO).
+        Analise esta etiqueta de logística de smartphone. 
+        Sua PRIORIDADE MÁXIMA é identificar o NOME DO PRODUTO e os IMEIs.
         
-        Campos:
-        - name: Nome formatado (MARCA MODELO RAM/ARMAZENAMENTO COR)
-        - sku: SKU/Part Number
-        - imei1: Primeiro IMEI
-        - imei2: Segundo IMEI (se houver)
-        - brand: Marca
+        INSTRUÇÕES DE EXTRAÇÃO:
+        1. NOME: Formate RIGOROSAMENTE como "MARCA MODELO RAM/ARMAZENAMENTO COR". 
+           Exemplo: "REALME NOTE 60 4/128GB PRETO".
+           - Se a COR não for identificada, use "N/A".
+           - Exemplo sem cor: "REALME NOTE 60 4/128GB N/A".
+        2. IMEIs: Extraia o IMEI1 e IMEI2 (se houver).
+        3. SKU: IGNORE o SKU/Part Number.
+
+        Retorne APENAS um JSON no formato:
+        {
+          "name": "string",
+          "imei1": "string",
+          "imei2": "string",
+          "brand": "string"
+        }
         
         Seja extremamente preciso. O usuário é um operador de estoque de elite.
       `;
@@ -315,13 +339,19 @@ class AIService {
             mimeType: "image/jpeg"
           }
         }
-      ]);
+      ], { signal });
 
-      const text = result.response.text();
+      const response = await result.response;
+      const text = response.text();
       const cleanedText = text.replace(/```json|```/g, "").trim();
       return JSON.parse(cleanedText);
-    } catch (error) {
-      console.error("AI Analysis Failed:", error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log("IA Analysis Aborted.");
+        return null;
+      }
+      console.error("AI Analysis Failed (3.1):", error);
+      toast.error(`Falha Neural 3.1: ${error.message || "Erro Desconhecido"}`);
       return null;
     }
   }

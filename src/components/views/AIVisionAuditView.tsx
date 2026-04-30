@@ -39,10 +39,22 @@ export const AIVisionAuditView = () => {
   
   const { products } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+  const stopAi = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setLoading(false);
+      toast.error("Análise interrompida.");
+    }
+  };
 
   const handlePhotosUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
+      const controller = new AbortController();
+      setAbortController(controller);
       setLoading(true);
       setProcessingProgress(0);
       const allIdentified: any[] = [];
@@ -62,7 +74,8 @@ export const AIVisionAuditView = () => {
           const result = await aiService.auditMultiModal(
             { data: base64.split(',')[1], mimeType: file.type }, 
             type, 
-            expectedData
+            expectedData,
+            controller.signal
           );
 
           try {
@@ -82,12 +95,14 @@ export const AIVisionAuditView = () => {
         setIdentifiedData(allIdentified);
         setShowHub(true);
         toast.success(`${files.length} fotos processadas com sucesso!`);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
         console.error(err);
         toast.error("Erro ao processar lote de imagens.");
       } finally {
         setLoading(false);
         setProcessingProgress(0);
+        setAbortController(null);
       }
     }
   };
@@ -170,6 +185,8 @@ export const AIVisionAuditView = () => {
       return;
     }
     
+    const controller = new AbortController();
+    setAbortController(controller);
     setLoading(true);
     setCameraOpen(false);
     setProcessingProgress(0);
@@ -186,7 +203,8 @@ export const AIVisionAuditView = () => {
           const result = await aiService.auditMultiModal(
             { data: photo.split(',')[1], mimeType: 'image/jpeg' }, 
             type, 
-            expectedData
+            expectedData,
+            controller.signal
           );
 
           const jsonMatch = result.text.match(/\{.*\}/s);
@@ -238,7 +256,7 @@ export const AIVisionAuditView = () => {
 
         // Somente enviar para a IA o que não temos no banco local nem no catálogo
         if (unknownSKUs.length > 0) {
-          const resolution = await aiService.resolveSKUs(unknownSKUs);
+          const resolution = await aiService.resolveSKUs(unknownSKUs, controller.signal);
           if (resolution.identified) {
             const enriched = resolution.identified.map((item: any) => {
               // Aprender SKU novo no catálogo
@@ -263,11 +281,13 @@ export const AIVisionAuditView = () => {
       setScannedSKUs([]);
       scannedSKUsRef.current.clear();
       toast.success(`Auditoria concluída com sucesso!`);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
       toast.error("Erro ao processar auditoria.");
       console.error(err);
     } finally {
       setLoading(false);
+      setAbortController(null);
     }
   };
 
@@ -523,11 +543,21 @@ export const AIVisionAuditView = () => {
               <div className="h-24 w-24 rounded-full border-4 border-primary border-t-transparent animate-spin absolute inset-0" />
               <Zap className="h-10 w-10 text-primary absolute inset-0 m-auto animate-pulse" />
             </div>
-            <div className="text-center">
-              <div className="text-primary font-black uppercase tracking-[0.4em] text-xs animate-pulse">
-                {processingProgress > 0 ? `Processando Lote: ${processingProgress}%` : 'Analisando Evidências'}
+            <div className="text-center flex flex-col items-center gap-4">
+              <div>
+                <div className="text-primary font-black uppercase tracking-[0.4em] text-xs animate-pulse">
+                  {processingProgress > 0 ? `Processando Lote: ${processingProgress}%` : 'Analisando Evidências'}
+                </div>
+                <div className="text-white/40 font-mono-tactical text-[10px] uppercase mt-2">O Cérebro está analisando as etiquetas...</div>
               </div>
-              <div className="text-white/40 font-mono-tactical text-[10px] uppercase mt-2">O Cérebro está analisando as etiquetas...</div>
+              
+              <button 
+                onClick={stopAi}
+                className="mt-4 bg-red-500/10 border border-red-500/30 px-8 py-3 rounded-2xl text-red-500 font-black uppercase text-[10px] tracking-widest hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 shadow-glow-danger-sm"
+              >
+                <X className="w-4 h-4" />
+                Interromper
+              </button>
             </div>
           </motion.div>
         )}
