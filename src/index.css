@@ -36,9 +36,9 @@
     --accent: 180 100% 50%;
     --accent-foreground: 0 0% 0%;
 
-    --ai: 282 86% 53%;                   /* Magenta/Roxo Neon #A020F0 */
-    --ai-foreground: 0 0% 100%;
-    --ai-glow: 290 100% 65%;
+    --ai: 191 100% 50%;                   /* Tactical Cyber Blue #00D1FF */
+    --ai-foreground: 0 0% 0%;
+    --ai-glow: 191 100% 65%;
 
     --success: 120 100% 50%;             /* Verde Neon #00FF00 */
     --success-foreground: 0 0% 0%;
@@ -60,7 +60,7 @@
 
     /* Gradients */
     --gradient-cyan: linear-gradient(135deg, hsl(180 100% 50% / 0.15), hsl(180 100% 50% / 0.02));
-    --gradient-ai: linear-gradient(135deg, hsl(282 86% 53%), hsl(290 100% 65%));
+    --gradient-ai: linear-gradient(135deg, hsl(191 100% 50%), hsl(191 100% 70%));
     --gradient-success: linear-gradient(135deg, hsl(120 100% 40%), hsl(150 100% 50%));
     --gradient-danger: linear-gradient(135deg, hsl(348 100% 50%), hsl(0 100% 55%));
     --gradient-tactical: radial-gradient(ellipse at top, hsl(220 30% 8%) 0%, hsl(0 0% 0%) 60%);
@@ -70,7 +70,7 @@
     /* Shadows / Glows */
     --glow-cyan: 0 0 35px hsl(180 100% 50% / 0.6), 0 0 60px hsl(180 100% 50% / 0.3);
     --glow-cyan-strong: 0 0 50px hsl(180 100% 50% / 0.8), 0 0 100px hsl(180 100% 50% / 0.4);
-    --glow-ai: 0 0 40px hsl(282 86% 53% / 0.7), 0 0 80px hsl(282 86% 53% / 0.35);
+    --glow-ai: 0 0 40px hsl(191 100% 50% / 0.7), 0 0 80px hsl(191 100% 50% / 0.35);
     --glow-success: 0 0 35px hsl(120 100% 50% / 0.7), 0 0 70px hsl(120 100% 50% / 0.35);
     --glow-danger: 0 0 35px hsl(348 100% 50% / 0.7), 0 0 70px hsl(348 100% 50% / 0.35);
     --glow-white: 0 0 30px hsl(0 0% 100% / 0.7), 0 0 60px hsl(180 100% 80% / 0.3);
@@ -132,7 +132,7 @@
     background: hsl(var(--background));
     background-image:
       radial-gradient(ellipse 80% 50% at 50% -10%, hsl(180 100% 50% / 0.08), transparent),
-      radial-gradient(ellipse 60% 50% at 80% 110%, hsl(282 86% 53% / 0.06), transparent);
+      radial-gradient(ellipse 60% 50% at 80% 110%, hsl(191 100% 50% / 0.06), transparent);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -193,7 +193,7 @@
   }
 
   .text-glow-cyan { text-shadow: 0 0 10px hsl(180 100% 50% / 0.7), 0 0 20px hsl(180 100% 50% / 0.4); }
-  .text-glow-ai { text-shadow: 0 0 10px hsl(282 86% 53% / 0.8), 0 0 20px hsl(282 86% 53% / 0.4); }
+  .text-glow-ai { text-shadow: 0 0 10px hsl(191 100% 50% / 0.8), 0 0 20px hsl(191 100% 50% / 0.4); }
   .text-glow-success { text-shadow: 0 0 10px hsl(120 100% 50% / 0.7); }
   .text-glow-danger { text-shadow: 0 0 10px hsl(348 100% 50% / 0.7); }
 
@@ -358,8 +358,8 @@
   .animate-scan { animation: scan-line 2.4s linear infinite; }
 
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px hsl(282 86% 53% / 0.4), 0 0 40px hsl(282 86% 53% / 0.2); }
-    50% { box-shadow: 0 0 35px hsl(282 86% 53% / 0.7), 0 0 70px hsl(282 86% 53% / 0.35); }
+    0%, 100% { box-shadow: 0 0 20px hsl(191 100% 50% / 0.4), 0 0 40px hsl(191 100% 50% / 0.2); }
+    50% { box-shadow: 0 0 35px hsl(191 100% 50% / 0.7), 0 0 70px hsl(191 100% 50% / 0.35); }
   }
   .animate-pulse-ai { animation: pulse-glow 2.5s ease-in-out infinite; }
 
@@ -378,8 +378,8 @@
   .animate-ping-soft { animation: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
 
   @keyframes ai-border {
-    0%, 100% { border-color: hsl(282 86% 53%); }
-    50% { border-color: hsl(290 100% 75%); }
+    0%, 100% { border-color: hsl(191 100% 50%); }
+    50% { border-color: hsl(191 100% 75%); }
   }
   .animate-ai-border { animation: ai-border 2.5s ease-in-out infinite; }
 
@@ -495,11 +495,90 @@
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 163, 255, 0.2);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+
+  /* Tactical Prose Utilities */
+  .prose-ai-insight p {
+    margin-bottom: 0.75rem;
+  }
+  .prose-ai-insight p:last-child {
+    margin-bottom: 0;
+  }
+  .prose-ai-insight strong {
+    color: hsl(var(--ai));
+    font-weight: 800;
+    text-shadow: 0 0 10px hsl(var(--ai) / 0.3);
+  }
+  .prose-ai-insight ul {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  .prose-ai-insight li {
+    margin-bottom: 0.4rem;
+    position: relative;
+    padding-left: 1.25rem;
+  }
+  .prose-ai-insight li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: hsl(var(--ai));
+  }
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 163, 255, 0.2);
-  border-radius: 10px;
+
+/* Tactical AI Tags */
+name {
+  @apply font-black text-primary uppercase tracking-wider px-1;
+  text-shadow: 0 0 8px hsl(var(--primary) / 0.4);
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 163, 255, 0.4);
+
+warn {
+  @apply font-black text-danger uppercase tracking-tight px-1.5 py-0.5 rounded-sm bg-danger/10 border border-danger/20;
+  text-shadow: 0 0 10px hsl(var(--danger) / 0.3);
+}
+
+price {
+  @apply font-mono-tactical font-bold text-success;
+}
+
+desc {
+  @apply text-white/60 italic;
+}
+
+/* Markdown Table Overrides for Tactical Look */
+.prose table {
+  @apply border-collapse w-full my-4 border border-white/10 rounded-xl overflow-hidden text-[10px];
+}
+
+.prose thead {
+  @apply bg-white/5 border-b border-white/10;
+}
+
+.prose th {
+  @apply px-3 py-2 text-left font-black text-white/50 uppercase tracking-widest border-r border-white/5 last:border-r-0;
+}
+
+.prose td {
+  @apply px-3 py-2 border-r border-b border-white/5 last:border-r-0 text-white/80 font-mono-tactical;
+}
+
+.prose tr:last-child td {
+  @apply border-b-0;
+}
+
+.prose tr:hover td {
+  @apply bg-white/[0.02] text-primary;
 }

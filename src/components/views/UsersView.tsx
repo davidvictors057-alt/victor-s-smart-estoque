@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { Users as UsersIcon, UserPlus, Search, TrendingUp, Award, Clock, Trash2, X, ShieldCheck, ShieldAlert, Edit3 } from "lucide-react";
 
-import { useStore } from "@/store/useStore";
+import { useStore, Profile } from "@/store/useStore";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
 
@@ -68,6 +68,8 @@ export const UsersView = () => {
           accent_color: '#3b82f6',
           theme_style: 'dark',
           client_id: null,
+          shift: 'Integral',
+          score: 5.0,
         });
         setIsAddOpen(false);
         setNewProfile({ full_name: '', email: '', role: 'operator', pin: '' });
@@ -141,7 +143,7 @@ export const UsersView = () => {
           <input
             type="text"
             placeholder="BUSCAR NO SQUAD..."
-            className="w-full bg-transparent font-mono-tactical text-xs font-black uppercase tracking-widest text-white placeholder:text-white/10 focus:outline-none"
+            className="w-full bg-transparent font-mono-tactical text-xs font-black uppercase tracking-widest text-white placeholder:text-white focus:outline-none"
           />
         </div>
         <motion.button
@@ -172,7 +174,7 @@ export const UsersView = () => {
             <UsersIcon className="h-10 w-10 text-primary" />
           </div>
           <div className="text-3xl font-black text-white tracking-tighter text-glow-cyan">{users.length.toString().padStart(2, '0')}</div>
-          <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Membros Ativos</div>
+          <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white">Membros Ativos</div>
         </motion.div>
 
         {currentUser?.role === 'admin' && (
@@ -190,14 +192,14 @@ export const UsersView = () => {
                 return m.type === 'out' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
               }).length.toString().padStart(2, '0')}
             </div>
-            <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Vendas Mês</div>
+            <div className="font-mono-tactical mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-white">Vendas Mês</div>
           </motion.div>
         )}
       </div>
 
       {/* Team List */}
       <div className="space-y-3">
-        <div className="font-mono-tactical flex items-center justify-between px-2 text-[9px] font-black uppercase tracking-[0.4em] text-white/20">
+        <div className="font-mono-tactical flex items-center justify-between px-2 text-[9px] font-black uppercase tracking-[0.4em] text-white">
           <span>SQUAD TÁTICO ATIVO</span>
           <span className="flex items-center gap-1"><div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> LIVE</span>
         </div>
@@ -237,13 +239,13 @@ export const UsersView = () => {
                 {/* Stats Section */}
                 <div className="flex-1 flex flex-col gap-2.5">
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/50">
+                    <div className="flex items-center gap-1.5 font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white">
                       <Award className="h-3.5 w-3.5 text-success" />
-                      <span className="text-white/80">{user.score.toFixed(1)}</span>
+                      <span className="text-white">{user.score.toFixed(1)}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/50">
+                    <div className="flex items-center gap-1.5 font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white">
                       <Clock className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-white/80">{user.shift.toUpperCase()}</span>
+                      <span className="text-white">{user.shift.toUpperCase()}</span>
                     </div>
                   </div>
 
@@ -308,7 +310,7 @@ export const UsersView = () => {
                 </h2>
                 <button
                   onClick={() => setIsAddOpen(false)}
-                  className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-2 text-white transition-colors hover:bg-white/10 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -418,7 +420,7 @@ export const UsersView = () => {
                 </h2>
                 <button
                   onClick={() => setIsEditOpen(false)}
-                  className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-2 text-white transition-colors hover:bg-white/10 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>

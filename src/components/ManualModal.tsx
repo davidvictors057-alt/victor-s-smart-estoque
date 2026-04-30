@@ -208,7 +208,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
                   <Star className="h-5 w-5 md:h-6 md:w-6 text-primary animate-pulse" />
                 </div>
                 <div className="hidden sm:block">
-                   <h2 className="font-mono-tactical text-[8px] font-black uppercase tracking-[0.4em] text-white/30">Manual Operacional</h2>
+                   <h2 className="font-mono-tactical text-[8px] font-black uppercase tracking-[0.4em] text-white">Manual Operacional</h2>
                    <div className="flex items-center gap-2">
                       <span className="text-sm font-black text-white tracking-tighter uppercase">Showcase Premium</span>
                    </div>
@@ -216,7 +216,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
               </div>
               <button
                 onClick={onClose}
-                className="pointer-events-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-white/5 backdrop-blur-md text-white/40 hover:bg-rose-500 hover:text-white transition-all ring-1 ring-white/10"
+                className="pointer-events-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-white/5 backdrop-blur-md text-white hover:bg-rose-500 hover:text-white transition-all ring-1 ring-white/10"
               >
                 <X className="h-5 w-5 md:h-6 md:w-6" />
               </button>
@@ -251,7 +251,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
                    <div className="bg-primary/20 backdrop-blur-xl border border-primary/30 px-4 py-2 rounded-xl shadow-2xl flex items-center gap-3">
                       <Activity className="h-4 w-4 text-primary" />
                       <div>
-                        <div className="font-mono-tactical text-[7px] text-white/40 uppercase tracking-widest">{slide.stats.label}</div>
+                        <div className="font-mono-tactical text-[7px] text-white uppercase tracking-widest">{slide.stats.label}</div>
                         <div className="font-mono-tactical text-[10px] md:text-xs text-white font-black uppercase tracking-widest">{slide.stats.value}</div>
                       </div>
                    </div>
@@ -281,7 +281,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
                       {slide.subtitle}
                     </p>
 
-                    <p className="text-sm md:text-lg text-white/40 leading-relaxed mb-6 md:mb-10 font-medium">
+                    <p className="text-sm md:text-lg text-white leading-relaxed mb-6 md:mb-10 font-medium">
                       {slide.description}
                     </p>
 
@@ -289,7 +289,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
                         {slide.features.map((feature, i) => (
                           <div key={i} className="flex items-center gap-3 bg-white/[0.02] p-3 md:p-4 rounded-xl md:rounded-2xl border border-white/5 hover:border-primary/20 transition-all group">
                               <CheckCircle2 className="h-3.5 w-3.5 text-primary group-hover:scale-110 transition-transform" />
-                              <span className="text-[10px] md:text-sm font-black text-white/60 group-hover:text-white transition-colors uppercase tracking-tight">{feature}</span>
+                              <span className="text-[10px] md:text-sm font-black text-white group-hover:text-white transition-colors uppercase tracking-tight">{feature}</span>
                           </div>
                         ))}
                     </div>
@@ -302,7 +302,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
             <div className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-black-piano md:px-12 md:py-8 md:bg-transparent">
               <button
                 onClick={() => paginate(-1)}
-                className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/5 backdrop-blur-md text-white/40 ring-1 ring-white/10"
+                className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/5 backdrop-blur-md text-white ring-1 ring-white/10"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
@@ -316,7 +316,7 @@ export const ManualModal = ({ open, onClose }: ManualModalProps) => {
                  ))}
               </div>
               
-              <div className="sm:hidden font-mono-tactical text-[10px] font-black text-white/40">
+              <div className="sm:hidden font-mono-tactical text-[10px] font-black text-white">
                 {current + 1} / 12
               </div>
 

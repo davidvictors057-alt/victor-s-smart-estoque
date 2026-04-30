@@ -21,7 +21,8 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
     // 1. Coletar itens do catálogo
     const catalogResults = catalog.filter(c => 
       c.name.toLowerCase().includes(searchLower) || 
-      c.sku.toLowerCase().includes(searchLower)
+      c.sku.toLowerCase().includes(searchLower) ||
+      (c.internal_code && c.internal_code.toLowerCase().includes(searchLower))
     );
 
     // 2. Fallback: Coletar itens únicos do estoque (products) que não estão no catálogo
@@ -44,6 +45,7 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
             image_url: p.image_url,
             cost: p.cost,
             sale: p.sale,
+            internal_code: p.internal_code,
             last_updated: p.updated_at
           });
           processedSkus.add(cleanSku);
@@ -88,14 +90,14 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
                   <p className="text-xl font-black text-white uppercase tracking-tighter">Explorar Catálogo</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 text-white/20 hover:text-white transition-colors">
+              <button onClick={onClose} className="p-2 text-white hover:text-white transition-colors">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Input com Botão de Busca */}
             <div className="relative mb-8 group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-primary transition-colors">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white group-focus-within:text-primary transition-colors">
                 <Package className="h-5 w-5" />
               </div>
               <input 
@@ -107,8 +109,8 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
                   setHasSearched(false);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Digite o nome ou SKU..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-16 text-white font-black tracking-tight focus:border-primary focus:outline-none transition-all placeholder:text-white/10"
+                placeholder="Nome, SKU ou Código Interno..."
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-16 text-white font-black tracking-tight focus:border-primary focus:outline-none transition-all placeholder:text-white"
               />
               <button 
                 onClick={() => setHasSearched(true)}
@@ -145,13 +147,16 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
                           {item.image_url ? (
                             <img src={item.image_url} className="w-full h-full object-cover" />
                           ) : (
-                            <Package className="w-6 h-6 text-white/20" />
+                            <Package className="w-6 h-6 text-white" />
                           )}
                         </div>
                         <div className="text-left">
                           <div className="text-sm font-black text-white uppercase truncate max-w-[180px] leading-tight">{item.name}</div>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <div className="text-[9px] font-mono-tactical text-primary uppercase tracking-widest">{item.sku}</div>
+                            {item.internal_code && (
+                              <div className="text-[9px] font-mono-tactical text-white uppercase tracking-widest">ID: {item.internal_code}</div>
+                            )}
                             <div className="bg-primary/20 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1">
                               <Package className="w-2 h-2" />
                               ESTOQUE: {useStore.getState().products.filter(p => p.sku?.trim() === item.sku.trim() && p.status === 'in_stock').length}
@@ -163,7 +168,7 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
                           </div>
                         </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-white/10 group-hover:text-primary transition-colors" />
+                      <ChevronRight className="w-5 h-5 text-white group-hover:text-primary transition-colors" />
                     </button>
                   ))}
                 </>
@@ -174,7 +179,7 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
                   </div>
                   <div>
                     <p className="text-xl font-black text-white uppercase tracking-tighter italic">NADA ENCONTRADO</p>
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mt-1 max-w-[200px]">
+                    <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] mt-1 max-w-[200px]">
                       Este item não consta no seu catálogo inteligente.
                     </p>
                   </div>
@@ -184,7 +189,7 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
 
             {/* Tactical Footer */}
             <div className="mt-8 pt-6 border-t border-white/5 text-center">
-              <p className="text-[8px] text-white/20 font-mono-tactical uppercase tracking-[0.4em]">
+              <p className="text-[8px] text-white font-mono-tactical uppercase tracking-[0.4em]">
                 Engine de Busca Tática v2.1 • Victor's Smart Estoque
               </p>
             </div>

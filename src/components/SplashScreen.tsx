@@ -10,7 +10,8 @@ import { useRef } from "react";
 
 export const SplashScreen = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { profiles, fetchAll, setCurrentUser, updateProfile } = useStore();
+  const store = useStore();
+  const { profiles, fetchProfiles, fetchAppSettings, fetchAll, setCurrentUser, updateProfile } = store;
   const [pin, setPin] = useState<string>("");
   const [loginMode, setLoginMode] = useState<'pin' | 'password'>('pin');
   const [authenticating, setAuthenticating] = useState(false);
@@ -19,8 +20,17 @@ export const SplashScreen = () => {
   const { setScreen, setRole } = useApp();
 
   useEffect(() => {
-    fetchAll();
-  }, []);
+    console.log("🚀 [SplashScreen] Iniciando carregamento de perfis...");
+    if (typeof fetchProfiles === 'function') {
+      fetchProfiles().catch(err => console.error("❌ [SplashScreen] Erro ao carregar perfis:", err));
+    } else {
+      console.error("❌ [SplashScreen] fetchProfiles não é uma função no store!");
+    }
+    
+    if (typeof fetchAppSettings === 'function') {
+      fetchAppSettings().catch(err => console.error("❌ [SplashScreen] Erro ao carregar configurações:", err));
+    }
+  }, [fetchProfiles, fetchAppSettings]);
 
   const activeProfiles = profiles.filter(p => p.full_name !== 'Carol Silva');
 
@@ -52,6 +62,7 @@ export const SplashScreen = () => {
         setCurrentUser(employee);
         setRole(employee.role === 'admin' ? 'admin' : 'employee');
         setScreen("app");
+        fetchAll(); // Start full sync after login
         toast.success(`Bem-vindo, ${employee.full_name.split(' ')[0]}!`);
       }
     } catch (err: any) {
@@ -112,7 +123,7 @@ export const SplashScreen = () => {
       >
         <VictorsLogo size={window.innerWidth > 640 ? "xl" : "lg"} />
         <div className="mt-2 text-center">
-          <h2 className="font-mono-tactical text-[8px] sm:text-[11px] font-bold tracking-[0.4em] text-white/90">
+          <h2 className="font-mono-tactical text-[8px] sm:text-[11px] font-bold tracking-[0.4em] text-white">
             SISTEMA DE GESTÃO DE ESTOQUE
           </h2>
         </div>
@@ -126,7 +137,7 @@ export const SplashScreen = () => {
           <div className="relative mb-6 flex w-full max-w-4xl items-center">
             <button 
               onClick={() => scrollEmployees('left')}
-              className="absolute left-0 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/50 backdrop-blur-sm transition-all hover:bg-primary/20 hover:text-primary active:scale-90"
+              className="absolute left-0 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-primary/20 hover:text-primary active:scale-90"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
@@ -155,7 +166,7 @@ export const SplashScreen = () => {
                       className="h-full w-full object-cover bg-black-piano" 
                     />
                   </div>
-                  <span className="mt-2 font-mono-tactical text-[7px] sm:text-[10px] font-bold tracking-wider text-white/70 uppercase">
+                  <span className="mt-2 font-mono-tactical text-[7px] sm:text-[10px] font-bold tracking-wider text-white uppercase">
                     {emp.full_name.split(' ')[0]}
                   </span>
                   {selectedEmployee === emp.id && (
@@ -167,7 +178,7 @@ export const SplashScreen = () => {
 
             <button 
               onClick={() => scrollEmployees('right')}
-              className="absolute right-0 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/50 backdrop-blur-sm transition-all hover:bg-primary/20 hover:text-primary active:scale-90"
+              className="absolute right-0 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-primary/20 hover:text-primary active:scale-90"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
@@ -189,7 +200,7 @@ export const SplashScreen = () => {
 
               <div className="w-full space-y-4">
                 <div className="flex flex-col items-center">
-                  <span className="mb-3 font-mono-tactical text-[8px] sm:text-[10px] font-black tracking-[0.3em] text-white/40 uppercase">
+                  <span className="mb-3 font-mono-tactical text-[8px] sm:text-[10px] font-black tracking-[0.3em] text-white uppercase">
                     {loginMode === 'pin' ? 'Digite seu PIN para acessar:' : 'Digite sua Senha para acessar:'}
                   </span>
                   
@@ -201,7 +212,7 @@ export const SplashScreen = () => {
                       onChange={(e) => setPin(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                       placeholder={loginMode === 'pin' ? "AGUARDANDO PIN..." : "DIGITE SUA SENHA..."}
-                      className="w-full rounded-xl border border-white/10 bg-black/40 py-3 sm:py-5 text-center font-mono-tactical text-lg sm:text-2xl font-black tracking-[0.5em] text-primary placeholder:text-white/5 placeholder:tracking-wider focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 py-3 sm:py-5 text-center font-mono-tactical text-lg sm:text-2xl font-black tracking-[0.5em] text-primary placeholder:text-white placeholder:tracking-wider focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
                     <div className="absolute inset-0 -z-10 bg-primary/5 blur-xl" />
                   </div>
@@ -244,7 +255,7 @@ export const SplashScreen = () => {
                         boxShadow: "0 0 30px rgba(255,59,48,0.5)"
                       }}
                       onClick={handleDelete}
-                      className="flex h-12 sm:h-16 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-white/40 transition-all hover:text-danger"
+                      className="flex h-12 sm:h-16 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-white transition-all hover:text-danger"
                     >
                       <Delete className="h-5 w-5" />
                     </motion.button>
@@ -355,7 +366,7 @@ export const SplashScreen = () => {
                     <span className="text-[8px] sm:text-[10px] font-black tracking-wider text-white/95 uppercase">BIOMETRIA</span>
                   </motion.button>
 
-                  <button className="hover-neon-blue flex flex-1 items-center justify-center rounded-xl border border-white/10 bg-white/5 py-3 sm:py-4 text-[8px] sm:text-[10px] font-black tracking-wider text-white/50 transition-all uppercase">
+                  <button className="hover-neon-blue flex flex-1 items-center justify-center rounded-xl border border-white/10 bg-white/5 py-3 sm:py-4 text-[8px] sm:text-[10px] font-black tracking-wider text-white transition-all uppercase">
                     ESQUECI O PIN
                   </button>
                 </div>

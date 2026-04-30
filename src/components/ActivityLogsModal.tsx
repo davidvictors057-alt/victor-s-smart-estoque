@@ -53,7 +53,7 @@ export const ActivityLogsModal = ({ open, onClose }: ActivityLogsModalProps) => 
               </div>
               <button
                 onClick={onClose}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white hover:bg-white/10 hover:text-white transition-all"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -62,7 +62,7 @@ export const ActivityLogsModal = ({ open, onClose }: ActivityLogsModalProps) => 
             {/* Search Bar */}
             <div className="p-4 border-b border-white/5">
               <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20 group-focus-within:text-primary transition-colors" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
                   placeholder="Filtrar por produto ou operador..."
@@ -95,8 +95,8 @@ export const ActivityLogsModal = ({ open, onClose }: ActivityLogsModalProps) => 
                           {m.product?.name || "Produto Desconhecido"}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <User className="h-3 w-3 text-white/30" />
-                          <span className="text-[10px] text-white/40 uppercase font-mono-tactical tracking-widest truncate">
+                          <User className="h-3 w-3 text-white" />
+                          <span className="text-[10px] text-white uppercase font-mono-tactical tracking-widest truncate">
                             {m.operator?.full_name || "Sistema"}
                           </span>
                         </div>
@@ -108,7 +108,7 @@ export const ActivityLogsModal = ({ open, onClose }: ActivityLogsModalProps) => 
                       }`}>
                         {m.type === 'in' ? "+ ENTRADA" : "- SAÍDA"}
                       </div>
-                      <div className="flex items-center gap-1.5 justify-end mt-1 text-white/20">
+                      <div className="flex items-center gap-1.5 justify-end mt-1 text-white">
                         <Clock className="h-3 w-3" />
                         <span className="text-[10px] font-mono-tactical">
                           {format(new Date(m.timestamp), "HH:mm · dd/MM", { locale: ptBR })}
@@ -119,15 +119,15 @@ export const ActivityLogsModal = ({ open, onClose }: ActivityLogsModalProps) => 
                 ))
               ) : (
                 <div className="py-20 text-center">
-                  <History className="h-12 w-12 text-white/10 mx-auto mb-4" />
-                  <p className="text-white/40 font-mono-tactical text-xs uppercase tracking-widest">Nenhum log encontrado</p>
+                  <History className="h-12 w-12 text-white mx-auto mb-4" />
+                  <p className="text-white font-mono-tactical text-xs uppercase tracking-widest">Nenhum log encontrado</p>
                 </div>
               )}
             </div>
 
             {/* Footer */}
             <div className="bg-white/[0.02] p-6 text-center border-t border-white/5">
-              <p className="text-[10px] text-white/20 font-mono-tactical uppercase tracking-[0.2em]">
+              <p className="text-[10px] text-white font-mono-tactical uppercase tracking-[0.2em]">
                 Auditoria em tempo real via Supabase Crypt
               </p>
             </div>

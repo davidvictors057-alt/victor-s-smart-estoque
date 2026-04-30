@@ -205,7 +205,7 @@ export const SideMenu = ({ open, onClose }: SideMenuProps) => {
               <div className="mt-4 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1 shadow-inner">
                 <div className="flex items-center gap-2">
                   <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
-                  <div className="font-mono-tactical text-[8px] uppercase tracking-[0.3em] text-white/90">
+                  <div className="font-mono-tactical text-[8px] uppercase tracking-[0.3em] text-white">
                     Último Sincronismo
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Boxes, Filter, MoreVertical, Package, Zap, ArrowRight, X, Camera, ChevronRight, ScanLine } from "lucide-react";
+import { Plus, Minus, Search, Boxes, Filter, MoreVertical, Package, Zap, ArrowRight, X, Camera, ChevronRight, ScanLine } from "lucide-react";
 import { CameraView } from "@/components/CameraView";
 import { toast } from "sonner";
 import { AIVisionAudit } from "@/components/AIVisionAudit";
@@ -28,7 +28,7 @@ export const StockView = () => {
     
     // Normalize key to avoid issues with case or spaces
     const nameNorm = (p.name || "Sem Nome").trim().toLowerCase();
-    const specNorm = (p.spec || "Normal").trim().toLowerCase();
+    const specNorm = (p.spec || "Padrão").trim().toLowerCase();
     const key = `${nameNorm}-${specNorm}`;
     
     if (!acc[key]) {
@@ -49,12 +49,12 @@ export const StockView = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-black-piano neon-blue-border flex items-center gap-3 rounded-2xl px-4 py-3.5 shadow-lg"
       >
-        <Search className="h-5 w-5 text-primary/60" />
+        <Search className="h-5 w-5 text-primary" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Rastrear item no inventário..."
-          className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white/10"
+          className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white"
         />
         <button
           onClick={() => setAuditOpen(true)}
@@ -92,7 +92,7 @@ export const StockView = () => {
             <Boxes className="h-4 w-4" />
             INVENTÁRIO ({filtered.length})
           </div>
-          <span className="font-mono-tactical text-[9px] font-black text-white/20 uppercase tracking-widest">
+          <span className="font-mono-tactical text-[9px] font-black text-white uppercase tracking-widest">
             {products.filter(p => p.status === 'in_stock').length} UN EM ESTOQUE
           </span>
         </div>
@@ -100,71 +100,75 @@ export const StockView = () => {
         <div className="space-y-4">
           {filtered.map((it, i) => {
             const isLow = it.stock <= 5;
-            return (              <motion.div
+            return (
+              <motion.div
                 key={it.name + it.spec}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className={`group flex items-center gap-3 rounded-2xl p-3 ring-1 transition-all cursor-pointer ${
+                className={`group flex flex-col gap-4 rounded-[2rem] p-5 ring-1 transition-all cursor-pointer ${
                   it.stock <= 1 
                     ? "bg-danger/10 ring-danger/30 hover:bg-danger/20" 
-                    : "bg-white/[0.02] ring-white/5 hover:bg-white/[0.05]"
+                    : "bg-white/[0.03] ring-white/10 hover:bg-white/[0.06] shadow-xl"
                 }`}
                 onClick={() => {
                   setSelectedProduct(it);
                   setInsightOpen(true);
                 }}
               >
-                {/* Imagem Compacta */}
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black border border-white/5">
-                  <img src={it.image_url || "/products/placeholder.png"} alt={it.name} className="h-full w-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-                  {isLow && <div className="absolute inset-0 bg-danger/10" />}
-                </div>
-                
-                {/* Info Principal */}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-black text-white group-hover:text-primary transition-colors tracking-tight leading-tight">
+                {/* Top Section: Model Identification (Max 2 Lines) */}
+                <div className="flex-1 min-h-[3rem] flex flex-col justify-center">
+                  <div className="text-base font-black text-white group-hover:text-primary transition-colors tracking-tighter leading-tight line-clamp-2 uppercase">
                     {it.name}
                   </div>
-                  <div className="font-mono-tactical text-[8px] font-black uppercase tracking-widest text-white/20 truncate">
-                    {it.spec}
+                  <div className="flex gap-2 mt-1 items-center">
+                    <span className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-primary">
+                      {it.spec}
+                    </span>
+                    {it.internal_code && (
+                      <span className="font-mono-tactical text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/5 text-white/60 border border-white/10">
+                        #{it.internal_code}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-1 px-2 border-r border-white/5 min-w-[70px]">
-                  <span className={`font-mono-tactical text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                    it.stock === 1 
-                      ? "bg-danger text-white shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse" 
-                      : it.stock <= 5 
-                        ? "bg-danger/50 text-white" 
-                        : "text-success"
-                  }`}>
-                    {it.stock === 1 ? "CRÍTICO" : `${it.stock} UN`}
-                  </span>
-                  {(() => {
-                    const lastUpdate = new Date(it.updated_at || Date.now());
-                    const diffDays = Math.ceil((new Date().getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24));
-                    return diffDays >= 30 ? (
-                      <span className="font-mono-tactical text-[7px] font-black uppercase px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                        FRIO ({diffDays}D)
-                      </span>
-                    ) : null;
-                  })()}
-                  <span className="font-mono-tactical text-[10px] font-black text-white/40">
-                    R${it.sale}
-                  </span>
-                </div>
+                {/* Bottom Section: Tactical Row (Photo, Units, Price, Action) */}
+                <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/5">
+                  <div className="flex items-center gap-4">
+                    {/* Imagem Tática */}
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
+                      <img src={it.image_url || "/products/placeholder.png"} alt={it.name} className="h-full w-full object-cover transition-opacity group-hover:scale-110 duration-500" />
+                      {isLow && <div className="absolute inset-0 bg-danger/20" />}
+                    </div>
 
-                {/* Ações */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedItem(it);
-                  }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/20 hover:bg-primary/20 hover:text-primary transition-all"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+                    {/* Unidades & Preço */}
+                    <div className="flex flex-col">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-black text-white tracking-tighter">
+                          {it.stock}
+                        </span>
+                        <span className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest">
+                          UNIDADES
+                        </span>
+                      </div>
+                      <div className="font-mono-tactical text-[11px] font-black text-white/80">
+                        <span className="text-[9px] mr-1">R$</span>{it.sale}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ação: Editar */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedItem(it);
+                    }}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-white hover:bg-primary/20 hover:text-primary transition-all shadow-lg border border-white/10"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </div>
               </motion.div>
             );
           })}
@@ -325,7 +329,7 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
             </div>
             <div className="text-3xl font-black text-white tracking-tighter">Entrada de Item</div>
           </div>
-          <button onClick={onClose} className="h-14 w-14 rounded-full bg-white/5 flex items-center justify-center text-white/30 hover:bg-white/10 hover:text-white transition-all shadow-xl">
+          <button onClick={onClose} className="h-14 w-14 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-white/10 hover:text-white transition-all shadow-xl">
             <X className="h-7 w-7" />
           </button>
         </div>
@@ -339,7 +343,7 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
             {photo ? (
               <img src={photo} alt="Produto" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div className="flex flex-col items-center gap-4 text-white/10 group-hover:text-primary transition-all">
+              <div className="flex flex-col items-center gap-4 text-white group-hover:text-primary transition-all">
                 <Camera className="h-16 w-16" />
                 <span className="font-mono-tactical text-[11px] font-black uppercase tracking-[0.4em]">CAPTURA DE IMAGEM</span>
               </div>
@@ -349,54 +353,54 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
 
           <div className="space-y-6">
             <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-              <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">NOME DO MODELO</div>
+              <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">NOME DO MODELO</div>
               <input
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Xiaomi Redmi 13C..."
-                className="w-full bg-transparent font-black text-lg text-white outline-none placeholder:text-white/5"
+                className="w-full bg-transparent font-black text-lg text-white outline-none placeholder:text-white"
               />
             </div>
 
             <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-              <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">SKU / CÓDIGO</div>
+              <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">SKU / CÓDIGO</div>
               <input
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 placeholder="BIPE AQUI"
-                className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-primary outline-none placeholder:text-white/5"
+                className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-primary outline-none placeholder:text-white"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">IMEI 1</div>
+                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">IMEI 1</div>
                 <input
                   value={imei}
                   onChange={(e) => setImei(e.target.value)}
                   placeholder="123456..."
-                  className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-white outline-none placeholder:text-white/5"
+                  className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-white outline-none placeholder:text-white"
                 />
               </div>
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">IMEI 2</div>
+                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">IMEI 2</div>
                 <input
                   value={imei2}
                   onChange={(e) => setImei2(e.target.value)}
                   placeholder="OPCIONAL"
-                  className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-white outline-none placeholder:text-white/5"
+                  className="font-mono-tactical w-full bg-transparent font-black text-sm tracking-[0.2em] text-white outline-none placeholder:text-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">QUANTIDADE</div>
+                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">QUANTIDADE</div>
                 <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-[2rem] p-2 gap-2 shadow-inner">
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))} 
-                    className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10 active:scale-90 transition-all border border-white/5"
+                    className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center text-white hover:bg-white/10 active:scale-90 transition-all border border-white/5"
                   >
                     <Minus className="h-6 w-6" />
                   </button>
@@ -409,7 +413,7 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                       className="w-full bg-transparent text-center font-black text-3xl text-primary outline-none drop-shadow-glow-cyan"
                     />
-                    <div className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20 -mt-1">VOLUME</div>
+                    <div className="text-[8px] font-black uppercase tracking-[0.3em] text-white -mt-1">VOLUME</div>
                   </div>
 
                   <button 
@@ -421,7 +425,7 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
                 </div>
               </div>
               <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
-                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 group-focus-within:text-primary">VALOR VENDA (OPC)</div>
+                <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">VALOR VENDA (OPC)</div>
                 <input
                   type="number"
                   value={sale}
@@ -436,7 +440,7 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
           <div className="flex gap-5 pt-6">
             <button
               onClick={onClose}
-              className="flex-1 rounded-[2rem] bg-white/5 py-6 text-sm font-black uppercase tracking-widest text-white/30 hover:bg-white/10 transition-all border border-white/5"
+              className="flex-1 rounded-[2rem] bg-white/5 py-6 text-sm font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all border border-white/5"
             >
               CANCELAR
             </button>
@@ -499,7 +503,7 @@ const ActionSheet = ({ item, onClose, onEdit, onDelete, onCamera }: any) => (
       <div className="mx-auto mb-6 h-1.5 w-16 rounded-full bg-white/10" />
       <div className="mb-8 flex items-center gap-4">
         <div className="h-16 w-16 overflow-hidden rounded-2xl bg-black border border-white/10">
-          <img src={item.image_url} alt="" className="h-full w-full object-cover opacity-60" />
+          <img src={item.image_url} alt="" className="h-full w-full object-cover" />
         </div>
         <div>
           <div className="text-xl font-black text-white">{item.name}</div>
@@ -512,31 +516,31 @@ const ActionSheet = ({ item, onClose, onEdit, onDelete, onCamera }: any) => (
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary"><Zap className="h-5 w-5" /></div>
           <div>
             <div className="text-sm font-black text-white">EDITAR DADOS</div>
-            <div className="text-[10px] text-white/30">Alterar nome, preços ou especificações</div>
+            <div className="text-[10px] text-white">Alterar nome, preços ou especificações</div>
           </div>
-          <ChevronRight className="ml-auto h-5 w-5 text-white/10" />
+          <ChevronRight className="ml-auto h-5 w-5 text-white" />
         </button>
 
         <button onClick={onCamera} className="flex w-full items-center gap-4 rounded-2xl bg-white/5 p-5 text-left transition-all hover:bg-white/10">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20 text-success"><Camera className="h-5 w-5" /></div>
           <div>
             <div className="text-sm font-black text-white">TROCAR FOTO</div>
-            <div className="text-[10px] text-white/30">Atualizar imagem em todo o estoque</div>
+            <div className="text-[10px] text-white">Atualizar imagem em todo o estoque</div>
           </div>
-          <ChevronRight className="ml-auto h-5 w-5 text-white/10" />
+          <ChevronRight className="ml-auto h-5 w-5 text-white" />
         </button>
 
         <button onClick={onDelete} className="flex w-full items-center gap-4 rounded-2xl bg-danger/10 p-5 text-left transition-all hover:bg-danger/20">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-danger/20 text-danger"><X className="h-5 w-5" /></div>
           <div>
             <div className="text-sm font-black text-danger">EXCLUIR ESTOQUE</div>
-            <div className="text-[10px] text-danger/40">Remover permanentemente do sistema</div>
+            <div className="text-[10px] text-danger">Remover permanentemente do sistema</div>
           </div>
-          <ChevronRight className="ml-auto h-5 w-5 text-danger/20" />
+          <ChevronRight className="ml-auto h-5 w-5 text-danger" />
         </button>
       </div>
 
-      <button onClick={onClose} className="mt-6 w-full py-4 text-sm font-black text-white/20 uppercase tracking-widest">CANCELAR OPERAÇÃO</button>
+      <button onClick={onClose} className="mt-6 w-full py-4 text-sm font-black text-white uppercase tracking-widest">CANCELAR OPERAÇÃO</button>
     </motion.div>
   </>
 );
@@ -593,7 +597,7 @@ const EditProductModal = ({ item, onClose }: any) => {
             <div className="font-mono-tactical text-[10px] font-black text-primary tracking-[0.4em] uppercase">MÓDULO DE EDIÇÃO</div>
             <div className="text-2xl font-black text-white">Ajuste de Catálogo</div>
           </div>
-          <button onClick={onClose} className="text-white/20 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-white hover:text-white"><X /></button>
         </div>
 
         <div className="space-y-6">
@@ -602,7 +606,7 @@ const EditProductModal = ({ item, onClose }: any) => {
             <img 
               src={photo || "/products/placeholder.png"} 
               alt="" 
-              className="h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-80" 
+              className="h-full w-full object-cover transition-opacity group-hover:opacity-100" 
             />
             <button 
               onClick={() => setCamOpen(true)}
@@ -614,7 +618,7 @@ const EditProductModal = ({ item, onClose }: any) => {
           </div>
 
           <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
-            <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2 tracking-widest">NOME DO MODELO</label>
+            <label className="font-mono-tactical block text-[9px] font-black text-white uppercase mb-2 tracking-widest">NOME DO MODELO</label>
             <input 
               value={name} 
               onChange={e => setName(e.target.value)} 
@@ -624,7 +628,7 @@ const EditProductModal = ({ item, onClose }: any) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
-              <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2 tracking-widest">CUSTO (R$)</label>
+              <label className="font-mono-tactical block text-[9px] font-black text-white uppercase mb-2 tracking-widest">CUSTO (R$)</label>
               <input 
                 type="number" 
                 value={cost} 
@@ -633,7 +637,7 @@ const EditProductModal = ({ item, onClose }: any) => {
               />
             </div>
             <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
-              <label className="font-mono-tactical block text-[9px] font-black text-white/30 uppercase mb-2 tracking-widest">VENDA (R$)</label>
+              <label className="font-mono-tactical block text-[9px] font-black text-white uppercase mb-2 tracking-widest">VENDA (R$)</label>
               <input 
                 type="number" 
                 value={sale} 
@@ -645,7 +649,7 @@ const EditProductModal = ({ item, onClose }: any) => {
         </div>
 
         <div className="mt-10 flex gap-4">
-          <button onClick={onClose} className="flex-1 rounded-2xl bg-white/5 py-5 font-black text-white/30 text-xs tracking-[0.2em]">CANCELAR</button>
+          <button onClick={onClose} className="flex-1 rounded-2xl bg-white/5 py-5 font-black text-white text-xs tracking-[0.2em]">CANCELAR</button>
           <button 
             onClick={handleSave} 
             disabled={isSaving} 
@@ -681,30 +685,30 @@ const ProductViewModal = ({ item, onClose }: any) => (
 
       <div className="space-y-4">
         <div>
-          <div className="font-mono-tactical text-[8px] font-black text-white/20 tracking-[0.3em] uppercase">IDENTIFICAÇÃO</div>
+          <div className="font-mono-tactical text-[8px] font-black text-white tracking-[0.3em] uppercase">IDENTIFICAÇÃO</div>
           <h2 className="text-xl sm:text-2xl font-black text-white leading-tight uppercase">{item.name}</h2>
           <p className="font-mono-tactical text-[10px] text-primary mt-1 uppercase tracking-widest">{item.spec} · {item.brand || "Geral"}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-            <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase mb-1">ESTOQUE</div>
+            <div className="font-mono-tactical text-[8px] font-black text-white uppercase mb-1">ESTOQUE</div>
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-black text-white">{item.stock}</span>
-              <span className="text-[8px] font-bold text-white/20 uppercase">UN</span>
+              <span className="text-[8px] font-bold text-white uppercase">UN</span>
             </div>
           </div>
           <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-            <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase mb-1">VALOR VENDA</div>
+            <div className="font-mono-tactical text-[8px] font-black text-white uppercase mb-1">VALOR VENDA</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-[8px] font-bold text-white/40">R$</span>
+              <span className="text-[8px] font-bold text-white">R$</span>
               <span className="text-lg font-black text-primary">{item.sale || "0.00"}</span>
             </div>
           </div>
         </div>
 
         <div className="rounded-xl bg-white/5 p-3 border-l-2 border-primary/50">
-          <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase">SKU / IDENTIFICADORES</div>
+          <div className="font-mono-tactical text-[8px] font-black text-white uppercase">SKU / IDENTIFICADORES</div>
           <div className="font-mono-tactical text-[10px] font-bold text-white tracking-widest truncate">
             {item.sku && <div>SKU: {item.sku}</div>}
             {item.imei && item.imei !== 'N/A' && <div>IMEI 1: {item.imei}</div>}
@@ -716,7 +720,7 @@ const ProductViewModal = ({ item, onClose }: any) => (
 
       <button 
         onClick={onClose}
-        className="mt-6 w-full rounded-2xl bg-white/5 py-4 font-black text-white/40 text-[10px] uppercase tracking-[0.2em] hover:bg-white/10 transition-all border border-white/5"
+        className="mt-6 w-full rounded-2xl bg-white/5 py-4 font-black text-white text-[10px] uppercase tracking-[0.2em] hover:bg-white/10 transition-all border border-white/5"
       >
         FECHAR
       </button>

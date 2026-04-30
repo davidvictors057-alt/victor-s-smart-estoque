@@ -70,7 +70,7 @@ export const AIProductInsight: React.FC<AIProductInsightProps> = ({ product, isO
                   </div>
                 </div>
                 <button onClick={onClose} className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5 text-white/50" />
+                  <X className="w-5 h-5 text-white" />
                 </button>
               </div>
 
@@ -80,20 +80,20 @@ export const AIProductInsight: React.FC<AIProductInsightProps> = ({ product, isO
                     <div className="w-16 h-16 rounded-full border-t-2 border-blue-500 animate-spin" />
                     <Brain className="w-8 h-8 text-blue-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
                   </div>
-                  <p className="text-white/60 text-sm animate-pulse font-medium">Consultando Cérebro Central...</p>
+                  <p className="text-white text-sm animate-pulse font-medium">Consultando Cérebro Central...</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Package className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-bold text-white/40 uppercase tracking-widest">Produto Selecionado</span>
+                      <span className="text-xs font-bold text-white uppercase tracking-widest">Produto Selecionado</span>
                     </div>
                     <p className="text-lg font-semibold text-white">{product?.name}</p>
                     <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-xs text-white/60">Estoque: {product?.stock}un</span>
+                        <span className="text-xs text-white">Estoque: {product?.stock}un</span>
                       </div>
                     </div>
                   </div>
@@ -102,11 +102,11 @@ export const AIProductInsight: React.FC<AIProductInsightProps> = ({ product, isO
                     <ReactMarkdown
                       components={{
                         hr: () => <hr className="my-4 border-white/5" />,
-                        p: ({children}) => <p className="text-white/80 leading-relaxed text-sm mb-4">{children}</p>,
+                        p: ({children}) => <p className="text-white leading-relaxed text-sm mb-4">{children}</p>,
                         strong: ({children}) => <strong className="text-blue-400 font-bold">{children}</strong>,
                         h1: ({children}) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
                         ul: ({children}) => <ul className="space-y-2 mb-4">{children}</ul>,
-                        li: ({children}) => <li className="text-sm text-white/70 flex items-start gap-2">
+                        li: ({children}) => <li className="text-sm text-white flex items-start gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 mt-1.5 flex-shrink-0" />
                           {children}
                         </li>

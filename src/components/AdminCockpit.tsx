@@ -187,12 +187,12 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           </button>
           <button 
             onClick={handleRefresh}
-            className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-white/40 transition-all hover:bg-white/10 hover:text-white shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-white transition-all hover:bg-white/10 hover:text-white shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
           >
             <ArrowLeftRight className="h-5 w-5 rotate-90" />
           </button>
           <div className="font-mono-tactical text-right hidden sm:block">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white/20">Sync Status</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white">Sync Status</div>
             <div className="text-sm font-black text-success text-glow-success flex items-center gap-2 justify-end">
               <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
               LIVE · {integrity.toFixed(1)}%
@@ -220,15 +220,15 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                 PATRIMÔNIO EM OPERAÇÃO
               </div>
               <div className="font-mono-tactical mt-5 text-5xl font-black text-white text-glow-cyan sm:text-6xl">
-                R$ {formattedPatrimony}<span className="text-2xl text-white/20">,{cents}</span>
+                R$ {formattedPatrimony}<span className="text-2xl text-white">,{cents}</span>
               </div>
               {formattedPatrimony !== "0" && (
                 <div className="mt-6 flex items-center gap-4">
-                  <div className={`flex items-center gap-2 rounded-xl px-4 py-1.5 ring-2 shadow-2xl ${growth > 0 ? 'bg-success/20 ring-success/50 text-success shadow-success/20' : growth < 0 ? 'bg-danger/20 ring-danger/50 text-danger shadow-danger/20' : 'bg-white/5 ring-white/10 text-white/30 shadow-none'}`}>
+                  <div className={`flex items-center gap-2 rounded-xl px-4 py-1.5 ring-2 shadow-2xl ${growth > 0 ? 'bg-success/20 ring-success/50 text-success shadow-success/20' : growth < 0 ? 'bg-danger/20 ring-danger/50 text-danger shadow-danger/20' : 'bg-white/5 ring-white/10 text-white shadow-none'}`}>
                     {growth > 0 ? <TrendingUp className="h-4 w-4" /> : growth < 0 ? <TrendingDown className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
                     <span className="font-mono-tactical text-xs font-black">{growth > 0 ? '+' : ''}{growth.toFixed(1)}%</span>
                   </div>
-                  <span className="font-mono-tactical text-[11px] font-black uppercase tracking-widest text-white/30">
+                  <span className="font-mono-tactical text-[11px] font-black uppercase tracking-widest text-white">
                     INDICADOR DE CRESCIMENTO
                   </span>
                 </div>
@@ -259,12 +259,12 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             ].map((s) => (
               <div key={s.label} className="min-w-0 relative group">
                 <div className="flex items-center gap-1.5">
-                  <div className="font-mono-tactical text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white/20 truncate">
+                  <div className="font-mono-tactical text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white truncate">
                     {s.label}
                   </div>
                   <button 
                     onClick={() => setTooltipMetric(s.label === tooltipMetric ? null : s.label)}
-                    className="text-white/10 hover:text-primary transition-colors"
+                    className="text-white hover:text-primary transition-colors"
                   >
                     <Info className="h-3 w-3" />
                   </button>
@@ -293,7 +293,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                         <Sparkles className="h-3 w-3" />
                         {metricExplanations[s.label].title}
                       </div>
-                      <div className="text-[11px] leading-relaxed text-white/70 font-medium">
+                      <div className="text-[11px] leading-relaxed text-white font-medium">
                         {metricExplanations[s.label].body}
                       </div>
                     </motion.div>
@@ -339,7 +339,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             <div className="space-y-3">
               {ruptureItems.slice(0, 3).map(name => (
                   <div key={name} className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
-                    <span className="text-sm font-bold text-white/80">{name}</span>
+                    <span className="text-sm font-bold text-white">{name}</span>
                     <Button 
                       size="sm" 
                       className="bg-success hover:bg-success/80 h-7 text-[9px] font-black rounded-lg"
@@ -376,8 +376,8 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
 
           <div className="flex items-center gap-3">
              <div className="font-mono-tactical text-right mr-2">
-                <div className="text-[8px] uppercase tracking-widest text-white/20">Cérebro</div>
-                <div className={`text-[10px] font-black ${onlineBrainMode ? 'text-ai' : 'text-white/40'}`}>
+                <div className="text-[8px] uppercase tracking-widest text-white">Cérebro</div>
+                <div className={`text-[10px] font-black ${onlineBrainMode ? 'text-ai' : 'text-white'}`}>
                    {onlineBrainMode ? 'ONLINE' : 'OFFLINE'}
                 </div>
              </div>
@@ -405,7 +405,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                    <div className="h-8 w-8 rounded-lg bg-ai/10 flex items-center justify-center text-ai shrink-0 group-hover:scale-110 transition-transform">
                       <Zap className="h-4 w-4" />
                    </div>
-                   <p className="text-[13px] text-white/80 font-medium leading-relaxed italic">
+                   <p className="text-[13px] text-white font-medium leading-relaxed italic">
                       "{insight.replace(/^-\s*/, '').replace(/^[0-9]\.\s*/, '')}"
                    </p>
                 </div>
@@ -414,7 +414,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
               <button 
                 onClick={runPredictiveAnalysis}
                 disabled={isAiLoading}
-                className="col-span-full mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 hover:text-ai transition-all flex items-center justify-center gap-3 py-3 border-t border-white/5"
+                className="col-span-full mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white hover:text-ai transition-all flex items-center justify-center gap-3 py-3 border-t border-white/5"
               >
                 {isAiLoading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
                 {isAiLoading ? 'RECALCULANDO PADRÕES...' : 'RECALCULAR INSIGHTS ESTRATÉGICOS'}
@@ -439,11 +439,11 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           <div className="flex gap-4">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_rgba(0,163,255,0.8)]" />
-              <span className="font-mono-tactical text-[9px] font-black text-white/40 uppercase">Entradas</span>
+              <span className="font-mono-tactical text-[9px] font-black text-white uppercase">Entradas</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-danger shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-              <span className="font-mono-tactical text-[9px] font-black text-white/40 uppercase">Saídas</span>
+              <span className="font-mono-tactical text-[9px] font-black text-white uppercase">Saídas</span>
             </div>
           </div>
         </div>
@@ -538,8 +538,8 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
               <div key={profile.id} className="space-y-2">
                 <div className="flex justify-between items-end">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-white/30">0{idx + 1}</span>
-                    <span className="text-sm font-bold text-white/90">{profile.full_name.split(' ')[0]}</span>
+                    <span className="text-[10px] font-black text-white">0{idx + 1}</span>
+                    <span className="text-sm font-bold text-white">{profile.full_name.split(' ')[0]}</span>
                   </div>
                   <span className="text-[10px] font-black text-cyan-400">{userMoves} AÇÕES</span>
                 </div>
@@ -570,11 +570,11 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <div className="text-[9px] font-black text-white/40 uppercase mb-1">Giro Previsto</div>
+              <div className="text-[9px] font-black text-white uppercase mb-1">Giro Previsto</div>
               <div className="text-lg font-black text-white">15 DIAS</div>
             </div>
             <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <div className="text-[9px] font-black text-white/40 uppercase mb-1">Ruptura Zero</div>
+              <div className="text-[9px] font-black text-white uppercase mb-1">Ruptura Zero</div>
               <div className="text-lg font-black text-success">ATIVO</div>
             </div>
           </div>
@@ -632,7 +632,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
               </RadarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex flex-col items-center gap-3 text-white/20">
+            <div className="flex flex-col items-center gap-3 text-white">
               <Boxes className="h-12 w-12 opacity-20" />
               <div className="font-mono-tactical text-[10px] uppercase tracking-widest">Aguardando mais dados de marcas...</div>
             </div>
@@ -649,7 +649,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             </div>
             <div className="text-2xl font-black text-white tracking-tighter">Estoque de Alto Valor</div>
           </div>
-          <div className="font-mono-tactical rounded-xl bg-white/5 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white/30 border border-white/5 shadow-inner">
+          <div className="font-mono-tactical rounded-xl bg-white/5 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white border border-white/5 shadow-inner">
             DIVERSIDADE: {inStockProducts.length} SKUs
           </div>
         </div>
@@ -692,20 +692,20 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <div className="space-y-5 p-5 sm:p-7">
                   <div>
                     <div className="text-xl font-black text-white group-hover:text-primary transition-colors tracking-tight">{p.name}</div>
-                    <div className="text-xs font-black text-white/30 uppercase tracking-[0.3em] mt-2">{p.spec}</div>
+                    <div className="text-xs font-black text-white uppercase tracking-[0.3em] mt-2">{p.spec}</div>
                   </div>
                   
-                  <div className="font-mono-tactical flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 text-[11px] font-black text-white/40 ring-1 ring-white/5 group-hover:ring-primary/30 group-hover:text-white/60 transition-all">
+                  <div className="font-mono-tactical flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 text-[11px] font-black text-white ring-1 ring-white/5 group-hover:ring-primary/30 group-hover:text-white transition-all">
                     <Zap className="h-4 w-4 text-primary shadow-glow-cyan animate-pulse" />
                     {p.imei ? `ID ${p.imei.slice(0, 6)}·••••·${p.imei.slice(-4)}` : `LOTE · ID ${p.id.slice(0, 8)}`}
                   </div>
 
                   <div className="flex items-end justify-between border-t border-white/5 pt-6">
                     <div>
-                      <div className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/20">
+                      <div className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white">
                         ESTOQUE CUSTO
                       </div>
-                      <div className="font-mono-tactical text-lg font-black text-white/50">
+                      <div className="font-mono-tactical text-lg font-black text-white">
                         R$ {p.cost.toLocaleString("pt-BR")}
                       </div>
                     </div>
@@ -781,14 +781,14 @@ const KPICard = ({ icon: Icon, label, value, deltaLabel, deltaValue = 0, tone, o
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0">
-          <div className="font-mono-tactical text-[11px] font-black uppercase tracking-widest text-white/20 truncate">
+          <div className="font-mono-tactical text-[11px] font-black uppercase tracking-widest text-white truncate">
             {label}
           </div>
           <div className="font-mono-tactical mt-4 text-4xl font-black text-white tracking-tighter truncate">{value}</div>
           <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full ring-1 ${
             isPositive ? 'text-success bg-success/10 ring-success/30' : 
             isNegative ? 'text-danger bg-danger/10 ring-danger/30' : 
-            'text-white/30 bg-white/5 ring-white/10'
+            'text-white bg-white/5 ring-white/10'
           }`}>
             {isPositive ? <TrendingUp className="h-4 w-4" /> : isNegative ? <TrendingDown className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
             <span className="font-mono-tactical text-[12px] font-black">{deltaLabel || '0%'}</span>

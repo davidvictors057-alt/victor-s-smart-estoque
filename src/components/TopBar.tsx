@@ -25,7 +25,7 @@ export const TopBar = () => {
       >
         <button
           onClick={() => setMenuOpen(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70 transition-all hover:bg-primary hover:text-black hover:shadow-[0_0_15px_rgba(0,163,255,0.6)]"
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white transition-all hover:bg-primary hover:text-black hover:shadow-[0_0_15px_rgba(0,163,255,0.6)]"
           aria-label="Abrir menu"
         >
           <Menu className="h-5 w-5" />
@@ -42,7 +42,7 @@ export const TopBar = () => {
           </div>
           <button
             onClick={() => setNotifOpen(true)}
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70 transition-all hover:bg-primary hover:text-black hover:shadow-[0_0_15px_rgba(0,163,255,0.6)]"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white transition-all hover:bg-primary hover:text-black hover:shadow-[0_0_15px_rgba(0,163,255,0.6)]"
             aria-label="Notificações"
           >
             <motion.div

@@ -10,6 +10,7 @@ interface MLSearchResult {
   logistic_type: string;
   available_quantity: number;
   sold_quantity: number;
+  isSimulation?: boolean;
 }
 
 class MercadoLivreService {
@@ -20,12 +21,20 @@ class MercadoLivreService {
    */
   async searchByEAN(ean: string): Promise<MLSearchResult[]> {
     try {
+      const { appSettings } = (await import("@/store/useStore")).useStore.getState();
+      const accessToken = appSettings.ml_access_token;
+
       // 1. Busca produtos pelo EAN
-      const response = await fetch(`${this.API_URL}/sites/MLB/search?q=${ean}`);
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+
+      const response = await fetch(`${this.API_URL}/sites/MLB/search?q=${ean}`, { headers });
       const data = await response.json();
 
       if (!data.results || data.results.length === 0) {
-        return [];
+        return this.getSimulationFallback(ean);
       }
 
       // 2. Filtra e mapeia os resultados (Foco em Platinum/Gold e Condição Novo)
@@ -41,13 +50,36 @@ class MercadoLivreService {
           seller_reputation: item.seller.seller_reputation?.power_seller_status,
           logistic_type: item.shipping?.logistic_type,
           available_quantity: item.available_quantity,
-          sold_quantity: item.sold_quantity || 0
+          sold_quantity: item.sold_quantity || 0,
+          isSimulation: false
         }));
+
+      if (filtered.length === 0) {
+        return this.getSimulationFallback(ean);
+      }
 
       // Ordena por menor preço
       return filtered.sort((a: any, b: any) => a.price - b.price);
     } catch (error) {
       console.error("ML API Error:", error);
+      return this.getSimulationFallback(ean);
+    }
+  }
+
+  /**
+   * Fallback tático usando IA para simular dados de mercado se a API falhar
+   */
+  private async getSimulationFallback(ean: string): Promise<MLSearchResult[]> {
+    try {
+      const { aiService } = await import("./aiService");
+      // Tenta encontrar o produto no catálogo para ter um nome melhor para a IA
+      const { products } = (await import("@/store/useStore")).useStore.getState();
+      const product = products.find(p => p.sku === ean || p.id === ean);
+      
+      const simulation = await aiService.simulateMarketData(product?.name || "Smartphone", ean);
+      return simulation.results || [];
+    } catch (e) {
+      console.error("Simulation Fallback Failed:", e);
       return [];
     }
   }

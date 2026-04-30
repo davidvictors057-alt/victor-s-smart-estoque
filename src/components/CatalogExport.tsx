@@ -80,7 +80,7 @@ export const CatalogExport: React.FC<CatalogExportProps> = ({ products, filterQu
         onClick={handleExport}
         disabled={!isReady}
         className={`bg-black-piano flex w-full items-center justify-center gap-3 rounded-2xl py-5 text-sm font-black shadow-glow-cyan border-[2px] transition-all mb-6 ${
-          isReady ? 'text-primary border-primary/20 hover:border-primary' : 'text-gray-500 border-gray-800'
+          isReady ? 'text-primary border-primary/20 hover:border-primary' : 'text-white border-gray-800'
         }`}
       >
         <FileText className="h-6 w-6" />

@@ -17,11 +17,11 @@ export const RoleToggle = ({ compact = false }: { compact?: boolean }) => {
         compact ? "" : ""
       }`}
     >
-      <span className="text-white/40 font-black">Perfil ativo</span>
+      <span className="text-white font-black">Perfil ativo</span>
       <div className="relative flex items-center gap-1 rounded-xl bg-white/5 p-1 border border-white/10">
         <span
           className={`relative z-10 flex items-center gap-1.5 rounded-lg px-2 py-1.5 font-black transition-all duration-300 ${
-            !isAdmin ? "text-black scale-105" : "text-white/30"
+            !isAdmin ? "text-black scale-105" : "text-white"
           }`}
         >
           <HardHat className="h-3.5 w-3.5" />
@@ -29,7 +29,7 @@ export const RoleToggle = ({ compact = false }: { compact?: boolean }) => {
         </span>
         <span
           className={`relative z-10 flex items-center gap-1.5 rounded-lg px-2 py-1.5 font-black transition-all duration-300 ${
-            isAdmin ? "text-white scale-105" : "text-white/30"
+            isAdmin ? "text-white scale-105" : "text-white"
           }`}
         >
           <Shield className="h-3.5 w-3.5" />

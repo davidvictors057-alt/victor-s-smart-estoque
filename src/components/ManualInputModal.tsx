@@ -39,7 +39,7 @@ export const ManualInputModal = ({ open, onClose, onConfirm }: ManualInputModalP
                 SISTEMA OPERACIONAL
               </div>
               <div className="text-xl font-black text-white tracking-tight">ENTRADA MANUAL</div>
-              <div className="mt-2 text-xs text-white/40 font-mono-tactical tracking-widest">DIGITE BARCODE / QR / INTERNO</div>
+              <div className="mt-2 text-xs text-white font-mono-tactical tracking-widest">DIGITE BARCODE / QR / INTERNO</div>
             </div>
             
             <div className="group mb-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition-all focus-within:border-primary focus-within:bg-white/[0.07] focus-within:shadow-[0_0_30px_rgba(0,163,255,0.15)]">
@@ -48,7 +48,7 @@ export const ManualInputModal = ({ open, onClose, onConfirm }: ManualInputModalP
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 placeholder="000000"
-                className="font-mono-tactical w-full bg-transparent text-center text-4xl font-black tracking-[0.3em] text-primary outline-none placeholder:text-white/5"
+                className="font-mono-tactical w-full bg-transparent text-center text-4xl font-black tracking-[0.3em] text-primary outline-none placeholder:text-white"
               />
             </div>
 
@@ -56,7 +56,7 @@ export const ManualInputModal = ({ open, onClose, onConfirm }: ManualInputModalP
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-2xl bg-white/5 py-4 text-xs font-black text-white/40 hover:bg-white/10 transition-all uppercase tracking-widest"
+                className="flex-1 rounded-2xl bg-white/5 py-4 text-xs font-black text-white hover:bg-white/10 transition-all uppercase tracking-widest"
               >
                 CANCELAR
               </button>

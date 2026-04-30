@@ -16,6 +16,7 @@ export interface Product {
   sale: number;
   status: 'in_stock' | 'sold' | 'reserved' | 'repair';
   image_url?: string | null;
+  internal_code?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +29,7 @@ export interface CatalogItem {
   cost?: number;
   sale?: number;
   client_id?: string;
+  internal_code?: string | null;
   last_updated: string;
 }
 
@@ -116,6 +118,7 @@ interface AppState {
   fetchCatalog: () => Promise<void>;
   addToCatalog: (item: Omit<CatalogItem, 'last_updated'>) => Promise<void>;
   updateCatalogItem: (sku: string, updates: Partial<CatalogItem>) => Promise<void>;
+  remapCatalogItem: (oldSku: string, newSku: string) => Promise<void>;
   fetchAll: () => Promise<void>;
   updateProfile: (id: string, updates: Partial<Profile>) => Promise<void>;
   clearCache: () => void;
@@ -137,10 +140,12 @@ interface AppState {
   deleteProductsBulk: (ids: string[]) => Promise<void>;
   fetchProductHistoricalPrices: (sku: string) => Promise<{ cost: number; sale: number } | null>;
   bulkAddProducts: (products: any[]) => Promise<void>;
+  bulkAddMovements: (movements: any[], isBulk?: boolean) => Promise<void>;
   purgeSystem: () => Promise<void>;
   getChartData: () => { name: string; in: number; out: number }[];
   lastOnlineSync: Date | null;
   lastAiAnalysis: string | null;
+  lastAiAnalysisModel: string | null;
   isAiLoading: boolean;
   onlineBrainMode: boolean;
   chatHistory: { role: 'user' | 'model'; content: string; meta?: { model: string; time: number } }[];
@@ -167,6 +172,7 @@ export const useStore = create<AppState>()(
       lastOnlineSync: null,
       lastSyncUser: null,
       lastAiAnalysis: null,
+      lastAiAnalysisModel: null,
       isAiLoading: false,
       onlineBrainMode: true,
       chatHistory: [],
@@ -213,7 +219,7 @@ export const useStore = create<AppState>()(
 
       fetchProducts: async () => {
         try {
-          const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+          const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false }).limit(1000);
           if (error) throw error;
           if (data) set({ products: data });
         } catch (error) { console.error(error); }
@@ -223,13 +229,29 @@ export const useStore = create<AppState>()(
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          const { data, error } = await supabase.from('product_catalog').select('*').eq('client_id', clientId);
+          
+          console.log(`🌐 [Store] Buscando catálogo para cliente: ${clientId}`);
+          const { data, error } = await supabase
+            .from('product_catalog')
+            .select('*')
+            .eq('client_id', clientId);
+
           if (error) {
-            console.warn("Tabela product_catalog não encontrada no Supabase. Usando apenas cache local.");
+            console.error("❌ [Store] Erro ao buscar catálogo no Supabase:", {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              hint: error.hint
+            });
             return;
           }
-          if (data) set({ catalog: data });
-        } catch (error) { console.error("Erro ao buscar catálogo:", error); }
+          if (data) {
+            console.log(`✅ [Store] ${data.length} itens do catálogo carregados.`);
+            set({ catalog: data });
+          }
+        } catch (error) { 
+          console.error("🚨 [Store] Erro crítico ao buscar catálogo:", error); 
+        }
       },
 
       addToCatalog: async (newItem) => {
@@ -275,6 +297,7 @@ export const useStore = create<AppState>()(
           if (updates.cost !== undefined) productUpdates.cost = updates.cost;
           if (updates.sale !== undefined) productUpdates.sale = updates.sale;
           if (updates.spec !== undefined) productUpdates.spec = updates.spec;
+          if (updates.internal_code !== undefined) productUpdates.internal_code = updates.internal_code;
 
           const { error: pError } = await supabase
             .from('products')
@@ -311,18 +334,82 @@ export const useStore = create<AppState>()(
         }
       },
 
+      remapCatalogItem: async (oldSku, newSku) => {
+        try {
+          const { catalog, currentUser } = get();
+          const cleanOld = oldSku.trim();
+          const cleanNew = newSku.trim();
+          
+          if (cleanOld === cleanNew) return;
+
+          const oldItem = catalog.find(c => c.sku === cleanOld);
+          if (!oldItem) throw new Error("Item de origem não encontrado");
+
+          const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
+          
+          // 1. Criar novo item no catálogo com o novo SKU
+          const newItem = { ...oldItem, sku: cleanNew, last_updated: new Date().toISOString() };
+          const { error: insError } = await supabase.from('product_catalog').upsert(newItem);
+          if (insError) throw insError;
+
+          // 2. Atualizar todos os produtos vinculados ao SKU antigo
+          const { error: pError } = await supabase
+            .from('products')
+            .update({ sku: cleanNew, updated_at: new Date().toISOString() })
+            .eq('sku', cleanOld);
+          
+          if (pError) console.warn("Erro parcial na atualização de produtos:", pError);
+
+          // 3. Deletar SKU antigo do catálogo
+          const { error: delError } = await supabase
+            .from('product_catalog')
+            .delete()
+            .eq('sku', cleanOld)
+            .eq('client_id', clientId);
+          
+          if (delError) console.warn("Erro ao deletar SKU antigo:", delError);
+
+          // 4. Atualizar estado local
+          set((state) => ({
+            catalog: state.catalog
+              .filter(c => c.sku !== cleanOld)
+              .concat(newItem as CatalogItem),
+            products: state.products.map(p => p.sku === cleanOld ? { ...p, sku: cleanNew } : p)
+          }));
+
+          toast.success("SKU REMAPEADO COM SUCESSO");
+        } catch (error) {
+          console.error("Erro ao remapear SKU:", error);
+          toast.error("FALHA AO REMAPEAR SKU");
+          throw error;
+        }
+      },
+
 
       fetchProfiles: async () => {
         try {
+          console.log("🌐 [Store] Buscando perfis...");
           const { data, error } = await supabase.from('profiles').select('*');
-          if (error) throw error;
-          if (data) set({ profiles: data });
-        } catch (error) { console.error(error); }
+          if (error) {
+            console.error("❌ [Store] Erro ao buscar perfis:", {
+              code: error.code,
+              message: error.message,
+              details: error.details
+            });
+            throw error;
+          }
+          if (data) {
+            console.log(`✅ [Store] ${data.length} perfis carregados.`);
+            set({ profiles: data });
+          }
+        } catch (error) { 
+          console.error("🚨 [Store] Erro crítico ao buscar perfis:", error); 
+        }
       },
 
       fetchMovements: async () => {
         try {
-          const { data, error } = await supabase.from('movements').select('*, product:products(*), operator:profiles(*)').order('timestamp', { ascending: false });
+          const { data, error } = await supabase.from('movements').select('*, product:products(*), operator:profiles(*)').order('timestamp', { ascending: false }).limit(100);
           if (error) throw error;
           if (data) set({ movements: data });
         } catch (error) { console.error(error); }
@@ -424,6 +511,7 @@ export const useStore = create<AppState>()(
               });
             }
 
+            set((state) => ({ products: [...data, ...state.products] }));
             toast.success("Estoque atualizado.");
           }
           await get().fetchAll();
@@ -450,6 +538,30 @@ export const useStore = create<AppState>()(
             });
           }
         } catch (error) { console.error("🚨 [Store] Erro no addMovement:", error); }
+      },
+
+      bulkAddMovements: async (movements, isBulk = false) => {
+        try {
+          const clientId = get().currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
+          const movementsWithClient = movements.map(m => ({ ...m, client_id: clientId }));
+          
+          // Otimização: Se for em lote, não fazemos select pesado com joins
+          const query = supabase.from('movements').insert(movementsWithClient);
+          
+          if (isBulk) {
+            const { error } = await query;
+            if (error) throw error;
+          } else {
+            const { data, error } = await query.select('*, product:products(*), operator:profiles(*)');
+            if (error) throw error;
+            if (data) {
+              set((state) => ({ movements: [...data, ...state.movements] }));
+            }
+          }
+        } catch (error) {
+          console.error("🚨 [Store] Erro no bulkAddMovements:", error);
+          throw error;
+        }
       },
 
       updateProduct: async (id, updates) => {
@@ -545,21 +657,21 @@ export const useStore = create<AppState>()(
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
           
-          // Flatten products based on quantity
           const allProductsToInsert: any[] = [];
+          const catalogToUpsert: Map<string, any> = new Map();
+
           productsList.forEach(item => {
             const qty = Number(item.quantity) || 1;
             
-            // FILTRAGEM RIGOROSA: Extrair apenas campos que existem na tabela 'products'
             const cleanProduct = {
               sku: item.sku?.trim() || null,
-              name: item.name,
-              spec: item.spec || null,
+              name: item.name || 'Produto Sem Nome',
+              spec: item.spec || 'Padrão',
               brand: item.brand || null,
               category: item.category || null,
               cost: Number(item.cost) || 0,
               sale: Number(item.sale) || 0,
-              status: item.status || 'in_stock',
+              status: (item.status && item.status !== 'resolved') ? item.status : 'in_stock',
               image_url: item.image_url || null,
               client_id: clientId
             };
@@ -572,8 +684,17 @@ export const useStore = create<AppState>()(
                 if (!cleanProduct.image_url) cleanProduct.image_url = catalogItem.image_url;
                 if (!cleanProduct.cost || cleanProduct.cost === 0) cleanProduct.cost = catalogItem.cost || 0;
                 if (!cleanProduct.sale || cleanProduct.sale === 0) cleanProduct.sale = catalogItem.sale || 0;
-                if (!cleanProduct.spec) cleanProduct.spec = catalogItem.spec || null;
               }
+              
+              catalogToUpsert.set(cleanProduct.sku, {
+                sku: cleanProduct.sku,
+                name: cleanProduct.name,
+                spec: cleanProduct.spec,
+                image_url: cleanProduct.image_url,
+                cost: cleanProduct.cost,
+                sale: cleanProduct.sale,
+                client_id: clientId
+              });
             }
 
             for (let i = 0; i < qty; i++) {
@@ -581,45 +702,64 @@ export const useStore = create<AppState>()(
                 ...cleanProduct,
                 imei: i === 0 ? (item.imei?.trim() || null) : null,
                 imei2: i === 0 ? (item.imei2?.trim() || null) : null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                // Removido criacao manual de timestamp para evitar conflitos/timeouts
               });
             }
           });
 
-          const { data, error } = await supabase.from('products').insert(allProductsToInsert).select();
-          if (error) throw error;
+          // ESTRATÉGIA DE CHUNKING (Fracionamento)
+          const CHUNK_SIZE = 20;
+          const insertedProducts: any[] = [];
 
-          if (data) {
-            const movementPromises = data.map((p) => 
-              get().addMovement({
-                product_id: p.id,
-                operator_id: currentUser?.id || null,
-                type: 'in',
-                notes: `Entrada em Lote: ${p.name}`
-              })
-            );
-            await Promise.all(movementPromises);
-
-            // --- SINCRONIZAÇÃO EM LOTE COM CATÁLOGO ---
-            const catalogPromises = productsList
-              .filter(p => p.sku)
-              .map(p => get().addToCatalog({
-                sku: p.sku!,
-                name: p.name,
-                spec: p.spec,
-                image_url: p.image_url,
-                cost: p.cost,
-                sale: p.sale
-              }));
-            await Promise.all(catalogPromises);
-
-            toast.success(`${data.length} itens registrados com sucesso!`);
+          for (let i = 0; i < allProductsToInsert.length; i += CHUNK_SIZE) {
+            const chunk = allProductsToInsert.slice(i, i + CHUNK_SIZE);
+            const { data, error } = await supabase.from('products').insert(chunk).select();
+            if (error) {
+              console.error(`Erro ao inserir chunk de produtos (${i}-${i+CHUNK_SIZE}):`, error);
+              throw error;
+            }
+            if (data) insertedProducts.push(...data);
           }
+
+          if (insertedProducts.length > 0) {
+            // 2. Movimentações em Lote Fracionadas
+            const movements = insertedProducts.map(p => ({
+              product_id: p.id,
+              operator_id: currentUser?.id || null,
+              type: 'in',
+              notes: `Entrada em Lote: ${p.name}`
+            }));
+
+            for (let i = 0; i < movements.length; i += CHUNK_SIZE) {
+              const chunk = movements.slice(i, i + CHUNK_SIZE);
+              await get().bulkAddMovements(chunk, true); // true = isBulk
+            }
+
+            // 3. Catálogo em Lote (Upsert)
+            const catalogItems = Array.from(catalogToUpsert.values());
+            if (catalogItems.length > 0) {
+              const { error: catError } = await supabase
+                .from('product_catalog')
+                .upsert(catalogItems, { onConflict: 'sku,client_id' });
+              if (catError) console.warn("Aviso: Falha ao atualizar catálogo em lote:", catError);
+            }
+
+            // 4. Notificações
+            await supabase.from('notifications').insert([{
+              title: "Registro em Lote",
+              body: `${insertedProducts.length} itens registrados via Tactical Hub.`,
+              tone: "success",
+              client_id: clientId
+            }]);
+
+            toast.success(`${insertedProducts.length} itens registrados com sucesso!`);
+          }
+          
           await get().fetchAll();
         } catch (error: any) {
           console.error("Erro no bulkAddProducts:", error);
           toast.error(`Erro no lote: ${error.message}`);
+          throw error; // Re-throw para o RegisterView capturar
         } finally {
           set({ isLoading: false });
         }
@@ -835,22 +975,51 @@ export const useStore = create<AppState>()(
 
       runPredictiveAnalysis: async () => {
         const { products, movements, onlineBrainMode } = get();
-        if (!onlineBrainMode) return;
+        if (!onlineBrainMode) {
+          toast.error("LINK NEURAL OFFLINE", { description: "Ative o modo Online Brain para processar." });
+          return;
+        }
+        
         set({ isAiLoading: true });
+        console.log("🧠 Iniciando análise preditiva...");
+        
         try {
           const inStock = products.filter(p => p.status === 'in_stock');
           const data = {
             inventorySummary: inStock.reduce((acc: any, p) => {
-              if (!acc[p.name]) acc[p.name] = { qtd: 0, costo: p.cost };
-              acc[p.name].qtd += 1;
+              const name = p.name || 'Produto Sem Nome';
+              if (!acc[name]) acc[name] = { qtd: 0, costo: p.cost };
+              acc[name].qtd += 1;
               return acc;
             }, {}),
-            movements: movements.slice(0, 10).map(m => ({ type: m.type, item: m.product?.name }))
+            movements: movements.slice(0, 15).map(m => ({ 
+              type: m.type, 
+              item: m.product?.name || 'Item Desconhecido',
+              time: m.timestamp 
+            })),
+            totalValue: inStock.reduce((sum, p) => sum + (p.cost || 0), 0)
           };
+          
           const { aiService } = await import('@/services/aiService');
           const analysis = await aiService.getPredictiveAnalysis(data);
-          set({ lastAiAnalysis: analysis });
-        } catch (error) { console.error(error); } finally { set({ isAiLoading: false }); }
+          
+          if (!analysis || !analysis.text) {
+            throw new Error("O Cérebro retornou uma resposta vazia.");
+          }
+
+          set({ 
+            lastAiAnalysis: analysis.text,
+            lastAiAnalysisModel: analysis.modelUsed || 'AI-CORE-3.1'
+          });
+          
+          console.log("✅ Análise concluída:", analysis.modelUsed);
+        } catch (error: any) { 
+          console.error("❌ Erro no runPredictiveAnalysis:", error); 
+          toast.error("FALHA NA CONEXÃO NEURAL", { description: error.message || "Erro desconhecido" });
+          // Não resetamos o lastAiAnalysis para manter o que estava antes se houver erro
+        } finally { 
+          set({ isAiLoading: false }); 
+        }
       },
 
       getStrategicContext: () => {
@@ -868,15 +1037,15 @@ export const useStore = create<AppState>()(
       sendChatMessage: async (msg) => {
         const { chatHistory } = get();
         if (!msg.trim()) return;
-        set({ chatHistory: [...chatHistory, { role: 'user', content: msg }], isAiLoading: true });
+        set({ chatHistory: [...chatHistory, { role: 'user' as const, content: msg }], isAiLoading: true });
         try {
           const { aiService } = await import('@/services/aiService');
           const context = get().getStrategicContext();
           const response = await aiService.chat(msg, chatHistory.slice(-10), context);
           set((state) => ({ 
             chatHistory: [...state.chatHistory, { 
-              role: 'model', content: response.text, meta: { model: response.model, time: response.time } 
-            }] 
+              role: 'model' as const, content: response.text, meta: { model: response.model, time: response.time } 
+            }].slice(-20) // Keep only last 20 messages
           }));
         } catch (error) { console.error(error); } finally { set({ isAiLoading: false }); }
       }
@@ -885,12 +1054,49 @@ export const useStore = create<AppState>()(
       name: 'victors-smart-storage',
       partialize: (state) => ({
         currentUser: state.currentUser,
-        catalog: state.catalog,
+        // Strip heavy image_url from catalog for persistence to stay under 5MB limit
+        catalog: state.catalog.map(({ image_url, ...rest }) => rest),
         appSettings: state.appSettings,
         onlineBrainMode: state.onlineBrainMode,
-        chatHistory: state.chatHistory,
+        chatHistory: state.chatHistory.slice(-20), // Truncate chat history
         lastAiAnalysis: state.lastAiAnalysis,
+        lastAiAnalysisModel: state.lastAiAnalysisModel,
       }),
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          try {
+            return JSON.parse(str);
+          } catch {
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, JSON.stringify(value));
+          } catch (error) {
+            if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+              console.error("🚨 [Storage] Quota exceeded. Pruning cache...");
+              // Emergency Pruning
+              const state = value.state;
+              if (state) {
+                state.chatHistory = []; // Clear chat
+                state.lastAiAnalysis = null; // Clear heavy AI analysis
+                // Clear catalog if still failing (will be refetched from Supabase)
+                try {
+                  localStorage.setItem(name, JSON.stringify({ ...value, state }));
+                  window.location.reload(); // Reload to start fresh with pruned state
+                } catch (retryError) {
+                  console.error("🚨 [Storage] Fatal: Could not prune enough space.");
+                  localStorage.removeItem(name);
+                }
+              }
+            }
+          }
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 );

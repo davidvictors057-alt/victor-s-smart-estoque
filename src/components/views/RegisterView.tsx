@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Minus, Tag, DollarSign, Camera, CheckCircle2, RefreshCw, Zap, Trash2, Percent, Fingerprint, Package, ScanLine, X, ChevronRight, Maximize2, Search, BookOpen } from "lucide-react";
+import { Plus, Minus, Tag, DollarSign, Camera, CheckCircle2, RefreshCw, Zap, Trash2, Percent, Fingerprint, Package, ScanLine, X, ChevronRight, Maximize2, Search, BookOpen, Cpu } from "lucide-react";
 import { CatalogAuditHUD } from "@/components/CatalogAuditHUD";
 import { SearchByNameHUD } from "@/components/SearchByNameHUD";
 import { CameraView } from "@/components/CameraView";
@@ -38,7 +38,8 @@ export const RegisterView = () => {
       cost: 0,
       imei: '',
       imei2: '',
-      quantity: 1
+      quantity: 1,
+      spec: 'Padrão'
     };
     setPendingQueue(prev => [...prev, newItem]);
     toast.success("Foto capturada!", { icon: '📸' });
@@ -55,7 +56,8 @@ export const RegisterView = () => {
       cost: 0,
       imei: '',
       imei2: '',
-      quantity: 1
+      quantity: 1,
+      spec: 'Padrão'
     };
     const newIdx = pendingQueue.length;
     setPendingQueue(prev => [...prev, newItem]);
@@ -80,26 +82,44 @@ export const RegisterView = () => {
     });
     
     try {
+      let resolvedCount = 0;
+      let simulatedCount = 0;
+
       const updatedQueue = await Promise.all(pendingQueue.map(async (item) => {
         if (item.status !== 'pending' && item.name !== 'IDENTIFICANDO...') return item;
         try {
           const result = await aiService.analyzeProductBox(item.image_url, controller.signal);
-          return {
-            ...item,
-            name: result?.name || item.name,
-            sku: result?.sku || item.sku,
-            imei: result?.imei1 || item.imei,
-            imei2: result?.imei2 || item.imei2,
-            status: 'resolved'
-          };
+          
+          if (result) {
+            if (result.isSimulation) simulatedCount++;
+            else resolvedCount++;
+
+            return {
+              ...item,
+              name: result?.name || item.name,
+              sku: result?.sku || item.sku,
+              imei: result?.imei1 || item.imei,
+              imei2: result?.imei2 || item.imei2,
+              spec: result?.spec || item.spec,
+              brand: result?.brand || item.brand,
+              status: 'resolved',
+              isSimulation: result.isSimulation
+            };
+          }
+          return { ...item, status: 'error', name: 'NÃO IDENTIFICADO' };
         } catch (e: any) {
           if (e.name === 'AbortError') throw e;
-          return { ...item, status: 'error' };
+          return { ...item, status: 'error', name: 'ERRO NA IA' };
         }
       }));
 
       setPendingQueue(updatedQueue);
-      toast.success("Processamento concluído!", { id: toastId });
+      
+      if (simulatedCount > 0) {
+        toast.success(`${resolvedCount} via IA + ${simulatedCount} via Simulação!`, { id: toastId });
+      } else {
+        toast.success("Processamento concluído!", { id: toastId });
+      }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         toast.dismiss(toastId);
@@ -115,11 +135,20 @@ export const RegisterView = () => {
     if (pendingQueue.length === 0) return;
     const toastId = toast.loading(`Registrando ${pendingQueue.length} itens...`);
     try {
-      await bulkAddProducts(pendingQueue);
+      // Filtrar itens que ainda estão "IDENTIFICANDO..." para evitar lixo no banco
+      const itemsToSave = pendingQueue.map(item => ({
+        ...item,
+        name: item.name === 'IDENTIFICANDO...' ? `Produto (Sem Identificação)` : item.name
+      }));
+
+      await bulkAddProducts(itemsToSave);
       setPendingQueue([]);
-      toast.success("Lote registrado com sucesso!", { id: toastId });
-    } catch (error) {
-      toast.error("Erro ao salvar lote.");
+      // toast.success já é chamado dentro do bulkAddProducts
+      toast.dismiss(toastId);
+    } catch (error: any) {
+      console.error("Erro ao salvar lote:", error);
+      // O erro já foi mostrado pelo toast dentro do bulkAddProducts, mas garantimos aqui
+      toast.error("Falha ao registrar o lote no servidor.", { id: toastId });
     }
   };
 
@@ -153,9 +182,9 @@ export const RegisterView = () => {
           className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
         >
           <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <BookOpen className="text-white/60 w-6 h-6" />
+            <BookOpen className="text-white w-6 h-6" />
           </div>
-          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Auditoria</span>
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">Auditoria</span>
         </button>
 
         <button 
@@ -163,9 +192,9 @@ export const RegisterView = () => {
           className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
         >
           <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Search className="text-white/60 w-6 h-6" />
+            <Search className="text-white w-6 h-6" />
           </div>
-          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Busca Nome</span>
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">Busca Nome</span>
         </button>
       </div>
 
@@ -199,7 +228,7 @@ export const RegisterView = () => {
             </div>
           </div>
         ) : (
-          <div className="py-32 flex flex-col items-center justify-center opacity-10">
+          <div className="py-32 flex flex-col items-center justify-center opacity-30">
             <Package className="w-24 h-24 mb-4" />
             <p className="text-sm font-black uppercase tracking-[0.4em]">Empty Intake</p>
           </div>
@@ -257,8 +286,8 @@ export const RegisterView = () => {
           if (beepingItemIndex !== null) {
             playBeep();
             const catalog = useStore.getState().catalog;
-            const match = catalog.find(c => c.sku === code);
-            const updates: any = { sku: code };
+            const match = catalog.find(c => c.sku === code || (c.internal_code && c.internal_code === code));
+            const updates: any = { sku: match ? match.sku : code };
             if (match) updates.name = match.name;
             setPendingQueue(prev => prev.map((it, i) => i === beepingItemIndex ? { ...it, ...updates } : it));
             setBeepingItemIndex(null);
@@ -270,8 +299,8 @@ export const RegisterView = () => {
             const cleanCode = code.trim();
             
             // Busca tática: Catálogo > Histórico de Produtos
-            const fromCatalog = catalog.find(c => c.sku.trim() === cleanCode);
-            const fromHistory = products.find(p => p.sku?.trim() === cleanCode);
+            const fromCatalog = catalog.find(c => c.sku.trim() === cleanCode || (c.internal_code && c.internal_code.trim() === cleanCode));
+            const fromHistory = products.find(p => p.sku?.trim() === cleanCode || (p.internal_code && p.internal_code.trim() === cleanCode));
             
             const newItem = {
               id: Math.random().toString(36).substr(2, 9),
@@ -367,7 +396,7 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
         {item.image_url ? (
           <img src={item.image_url} alt="" className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all" />
         ) : (
-          <div className="flex flex-col items-center gap-2 opacity-10">
+          <div className="flex flex-col items-center gap-2 opacity-30">
             <Package className="w-10 h-10" />
             <span className="text-[8px] font-black uppercase">MANUAL ENTRY</span>
           </div>
@@ -378,9 +407,16 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
             {item.quantity}X
           </div>
         )}
+
+        {item.isSimulation && (
+          <div className="absolute top-2 right-10 z-10 bg-amber-500 text-black font-black text-[8px] px-2 py-0.5 rounded-full shadow-lg flex items-center gap-1 uppercase">
+            <RefreshCw className="w-2.5 h-2.5 animate-spin-slow" />
+            Simulado
+          </div>
+        )}
         
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-          <p className="text-[9px] font-black text-white uppercase truncate tracking-tight italic">
+          <p className={`text-[9px] font-black text-white uppercase truncate tracking-tight italic ${item.status === 'error' ? 'text-red-500' : ''}`}>
             {item.name || "PENDENTE"}
           </p>
         </div>
@@ -493,11 +529,12 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
         if (result) {
           setData(prev => ({
             ...prev,
-            // Apenas IMEIs são atualizados no modo Raio-X para não sobrescrever SKU correto
+            // Apenas IMEIs e Spec são atualizados no modo Raio-X
             imei: result.imei1 || prev.imei,
-            imei2: result.imei2 || prev.imei2
+            imei2: result.imei2 || prev.imei2,
+            spec: result.spec || prev.spec
           }));
-          toast.success("IMEIs Extraídos!", { id: toastId });
+          toast.success("Dados Extraídos!", { id: toastId });
         }
       } catch (err: any) {
         if (err.name === 'AbortError') return;
@@ -537,6 +574,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
           ...prev,
           name: result.name || prev.name,
           sku: result.sku || prev.sku,
+          spec: result.spec || prev.spec,
           imei: result.imei1 || prev.imei,
           imei2: result.imei2 || prev.imei2,
         }));
@@ -567,7 +605,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
               <p className="text-[10px] text-primary font-black uppercase tracking-[0.3em]">Tactical Intake</p>
               <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Detalhes do Item</h2>
             </div>
-            <button onClick={onClose} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all">
+            <button onClick={onClose} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:text-white transition-all">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -579,7 +617,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
             {data.image_url ? (
               <img src={data.image_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-4 opacity-10">
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 opacity-30">
                 <Package className="w-16 h-16" />
                 <p className="text-xs font-black uppercase tracking-widest">Sem Evidência Visual</p>
               </div>
@@ -607,21 +645,34 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] text-white/30 font-black uppercase tracking-widest ml-4">Nomenclatura Operacional</label>
+              <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Nomenclatura Operacional</label>
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4 group focus-within:border-primary/50 transition-all">
                 <input 
                   value={data.name}
                   onChange={e => setData({...data, name: e.target.value.toUpperCase()})}
                   placeholder="EX: IPHONE 15 PRO MAX 256GB"
-                  className="flex-1 bg-transparent text-lg font-black text-white outline-none placeholder:text-white/10 italic uppercase tracking-[0.05em]"
+                  className="flex-1 bg-transparent text-lg font-black text-white outline-none placeholder:text-white italic uppercase tracking-[0.05em]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] text-white/30 font-black uppercase tracking-widest ml-4">SKU / Part Number</label>
+              <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Especificação / Detalhes</label>
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4 group focus-within:border-primary/50 transition-all">
+                <Cpu className="w-5 h-5 text-primary" />
+                <input 
+                  value={data.spec || ''}
+                  onChange={e => setData({...data, spec: e.target.value.toUpperCase()})}
+                  placeholder="EX: 128GB / 4GB / PRETO"
+                  className="flex-1 bg-transparent text-sm font-black text-white outline-none placeholder:text-white/30 uppercase tracking-[0.1em]"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">SKU / Part Number</label>
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4 focus-within:border-primary/50 transition-all">
-                <Tag className="w-5 h-5 text-primary/40" />
+                <Tag className="w-5 h-5 text-primary" />
                 <input 
                   value={data.sku}
                   onChange={e => setData({...data, sku: e.target.value.toUpperCase()})}
@@ -636,9 +687,9 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[10px] text-white/30 font-black uppercase tracking-widest ml-4">Valor Custo</label>
+                <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Valor Custo</label>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-3">
-                  <DollarSign className="w-4 h-4 text-red-500/40" />
+                  <DollarSign className="w-4 h-4 text-red-500" />
                   <input 
                     type="number"
                     value={data.cost || ''}
@@ -652,9 +703,9 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] text-white/30 font-black uppercase tracking-widest ml-4">Valor Venda</label>
+                <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Valor Venda</label>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-3">
-                  <DollarSign className="w-4 h-4 text-emerald-500/40" />
+                  <DollarSign className="w-4 h-4 text-emerald-500" />
                   <input 
                     type="number"
                     value={data.sale || ''}
@@ -680,14 +731,14 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                     <Percent className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Margem de Lucro</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white">Margem de Lucro</p>
                     <p className={`text-2xl font-black ${margin >= 30 ? 'text-emerald-500' : 'text-amber-500'}`}>
                       +{margin.toFixed(1)}%
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Ganho Líquido</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white">Ganho Líquido</p>
                   <p className="text-lg font-black text-white">R$ {(data.sale - data.cost).toFixed(2)}</p>
                 </div>
               </div>
@@ -695,10 +746,10 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
 
             <div className="space-y-4">
               <div className="flex items-center justify-between px-4">
-                <label className="text-[10px] text-white/30 font-black uppercase tracking-widest">Identificadores Seriais</label>
+                <label className="text-[10px] text-white font-black uppercase tracking-widest">Identificadores Seriais</label>
                 <button 
                   onClick={onScanIMEIs}
-                  className="flex items-center gap-2 text-primary/60 hover:text-primary transition-colors active:scale-95"
+                  className="flex items-center gap-2 text-primary hover:text-primary transition-colors active:scale-95"
                 >
                   <Zap className="w-3.5 h-3.5 fill-current" />
                   <span className="text-[9px] font-black uppercase tracking-widest">Raio-X IA</span>
@@ -707,7 +758,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
               
               <div className="grid grid-cols-1 gap-3">
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4">
-                  <Fingerprint className="w-5 h-5 text-white/20" />
+                  <Fingerprint className="w-5 h-5 text-white" />
                   <input 
                     value={data.imei}
                     onChange={e => setData({...data, imei: e.target.value})}
@@ -716,7 +767,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                   />
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4">
-                  <Fingerprint className="w-5 h-5 text-white/20" />
+                  <Fingerprint className="w-5 h-5 text-white" />
                   <input 
                     value={data.imei2}
                     onChange={e => setData({...data, imei2: e.target.value})}
@@ -729,18 +780,18 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
 
             {/* SELETOR DE QUANTIDADE TÁTICO */}
             <div className="space-y-4 pt-4 border-t border-white/5">
-              <label className="text-[10px] text-white/30 font-black uppercase tracking-widest ml-4">Volume do Lote</label>
+              <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Volume do Lote</label>
               <div className="flex items-center justify-center gap-8 bg-white/5 border border-white/10 rounded-[35px] p-4">
                 <button 
                   onClick={() => setData(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
-                  className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white transition-all active:scale-90"
+                  className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white hover:bg-white/10 hover:text-white transition-all active:scale-90"
                 >
                   <Minus className="w-6 h-6" />
                 </button>
                 
                 <div className="flex flex-col items-center">
                   <span className="text-4xl font-black text-primary drop-shadow-glow-cyan">{data.quantity}</span>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20 mt-1">UNIDADES</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white mt-1">UNIDADES</span>
                 </div>
 
                 <button 
@@ -750,7 +801,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                   <Plus className="w-6 h-6" />
                 </button>
               </div>
-              <p className="text-[9px] font-black text-center text-white/20 uppercase tracking-[0.2em]">
+              <p className="text-[9px] font-black text-center text-white uppercase tracking-[0.2em]">
                 {data.quantity > 1 ? `Lote de ${data.quantity} unidades (Apenas a primeira terá IMEI)` : "Unidade única"}
               </p>
             </div>

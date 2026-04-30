@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanLine, ArrowDownToLine, ArrowUpFromLine, Camera, Hash, Tag, X, Check, Image as ImageIcon, Package, Plus, Minus } from "lucide-react";
+import { ScanLine, ArrowDownToLine, ArrowUpFromLine, Camera, Hash, Tag, X, Check, Image as ImageIcon, Package, Plus, Minus, Cpu, DollarSign } from "lucide-react";
 import { CameraView } from "@/components/CameraView";
 import { ManualInputModal } from "@/components/ManualInputModal";
 import { toast } from "sonner";
@@ -32,7 +32,11 @@ export const EmployeeHUD = () => {
     { label: "Saídas", value: myMovementsToday.filter(m => m.type === 'out').length.toString(), color: "text-danger" },
   ];
 
-  const handleSubmit = async (productName: string, sku: string, imei: string, qty: number = 1) => {
+  const handleSubmit = async (productName: string, sku: string, imei: string, qty: number = 1, spec: string = "", cost: number = 0, sale: number = 0) => {
+    if (!productName) {
+      toast.error("Nome do produto é obrigatório.");
+      return;
+    }
     if (!action || !currentUser) return;
     
     const toastId = toast.loading(`Processando ${qty} unidades...`);
@@ -47,9 +51,9 @@ export const EmployeeHUD = () => {
             status: 'in_stock',
             brand: "Geral",
             category: "Smartphone",
-            spec: "Padrão",
-            cost: 0,
-            sale: 0,
+            spec: spec || "Padrão",
+            cost: cost || 0,
+            sale: sale || 0,
             image_url: "" 
           });
       } else {
@@ -170,7 +174,7 @@ export const EmployeeHUD = () => {
           </div>
         </div>
         <div className="font-mono-tactical text-right">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-0.5">Turno</div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-white mb-0.5">Turno</div>
           <div className="text-sm font-black text-success text-glow-success animate-pulse">ATIVO</div>
         </div>
       </motion.div>
@@ -276,7 +280,7 @@ export const EmployeeHUD = () => {
       >
         {stats.map((s) => (
           <div key={s.label} className="px-3 py-4 text-center group hover:bg-white/10 transition-colors cursor-pointer">
-            <div className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-white/40 group-hover:text-white/60">
+            <div className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-white group-hover:text-white">
               {s.label}
             </div>
             <div className={`font-mono-tactical mt-1.5 text-2xl font-black ${s.color} drop-shadow-[0_0_8px_currentColor] group-hover:scale-110 transition-transform`}>{s.value}</div>
@@ -296,7 +300,7 @@ export const EmployeeHUD = () => {
           <div className="font-mono-tactical text-[11px] font-black uppercase tracking-[0.4em] text-primary">
             LOG DO TURNO
           </div>
-          <div className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/30 bg-white/5 px-2 py-0.5 rounded border border-white/5 group-hover:border-primary/40 group-hover:text-primary transition-all">
+          <div className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white bg-white/5 px-2 py-0.5 rounded border border-white/5 group-hover:border-primary/40 group-hover:text-primary transition-all">
             {movements.length} EVENTOS
           </div>
         </div>
@@ -370,7 +374,7 @@ interface RegisterModalProps {
   action: "in" | "out";
   initialCode?: string;
   onClose: () => void;
-  onSubmit: (product: string, sku: string, imei: string, qty: number) => void;
+  onSubmit: (product: string, sku: string, imei: string, qty: number, spec: string, cost: number, sale: number) => void;
 }
 
 const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModalProps) => {
@@ -383,6 +387,9 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
   const [product, setProduct] = useState(existingProduct?.name || catalogItem?.name || "");
   const [sku, setSku] = useState(catalogItem?.sku || existingProduct?.sku || "");
   const [imei, setImei] = useState(existingProduct?.imei || "");
+  const [spec, setSpec] = useState(existingProduct?.spec || catalogItem?.spec || "");
+  const [cost, setCost] = useState<string>(existingProduct?.cost?.toString() || catalogItem?.cost?.toString() || "");
+  const [sale, setSale] = useState<string>(existingProduct?.sale?.toString() || catalogItem?.sale?.toString() || "");
   const [quantity, setQuantity] = useState("1");
   const [imei2, setImei2] = useState("");
   const [showImei2, setShowImei2] = useState(false);
@@ -396,6 +403,9 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
       
       if (found || inCatalog) {
         setProduct(found?.name || inCatalog?.name || "");
+        setSpec(found?.spec || inCatalog?.spec || "");
+        setCost(found?.cost?.toString() || inCatalog?.cost?.toString() || "");
+        setSale(found?.sale?.toString() || inCatalog?.sale?.toString() || "");
         
         // INTELLIGENT ROUTING
         if (inCatalog || found?.sku === initialCode) {
@@ -459,14 +469,14 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
 
         <div className="space-y-4 p-5">
           {/* Inputs */}
-          <Field icon={Tag} label="Nome / Especificação">
+          <Field icon={Tag} label="Nomenclatura">
             <div className="flex items-center gap-2">
               <input
                 autoFocus
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
-                placeholder="Xiaomi Redmi Note 13 Pro+ · 512GB · Aurora Purple"
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
+                placeholder="Xiaomi Redmi Note 13 Pro+"
+                className="w-full bg-transparent text-sm text-foreground font-black uppercase italic outline-none placeholder:text-muted-foreground/60"
               />
               {product.toLowerCase().includes("redmi") && (
                 <div className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[8px] font-black text-primary ring-1 ring-primary/30">
@@ -474,6 +484,17 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
                   CADASTRADO
                 </div>
               )}
+            </div>
+          </Field>
+
+          <Field icon={Cpu} label="Especificação Técnica">
+            <div className="flex items-center gap-2">
+              <input
+                value={spec}
+                onChange={(e) => setSpec(e.target.value)}
+                placeholder="Ex: 512GB · 12GB RAM · Aurora Purple"
+                className="w-full bg-transparent text-sm text-foreground font-bold uppercase outline-none placeholder:text-muted-foreground/60"
+              />
             </div>
           </Field>
 
@@ -502,7 +523,7 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
               <button 
                 onClick={() => setShowImei2(!showImei2)}
                 className={`font-mono-tactical text-[8px] font-black px-2 py-0.5 rounded border transition-all ${
-                  showImei2 ? "bg-primary text-black border-primary" : "text-white/40 border-white/20 hover:border-primary/60 hover:text-primary"
+                  showImei2 ? "bg-primary text-black border-primary" : "text-white border-white/20 hover:border-primary/60 hover:text-primary"
                 }`}
               >
                 {showImei2 ? "- REMOVER 2º" : "+ ADICIONAR 2º"}
@@ -566,12 +587,39 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
             }}
           />
 
-          <Field icon={Package} label="Quantidade (Lote)">
+          <div className="grid grid-cols-2 gap-3">
+            <Field icon={DollarSign} label="Custo Unitário">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-black text-muted-foreground/50">R$</span>
+                <input
+                  type="number"
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value)}
+                  placeholder="0,00"
+                  className="w-full bg-transparent text-sm font-black text-foreground outline-none placeholder:text-muted-foreground/60"
+                />
+              </div>
+            </Field>
+            <Field icon={DollarSign} label="Preço Venda">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-black text-muted-foreground/50">R$</span>
+                <input
+                  type="number"
+                  value={sale}
+                  onChange={(e) => setSale(e.target.value)}
+                  placeholder="0,00"
+                  className="w-full bg-transparent text-sm font-black text-primary outline-none placeholder:text-muted-foreground/60"
+                />
+              </div>
+            </Field>
+          </div>
+
+          <Field icon={Package} label="Volume de Entrada">
             <div className="flex items-center justify-between bg-white/[0.03] rounded-2xl p-1 border border-white/5">
               <button 
                 type="button"
                 onClick={() => setQuantity(prev => Math.max(1, (parseInt(prev) || 0) - 1).toString())}
-                className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white transition-all active:scale-90"
+                className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white hover:bg-white/10 hover:text-white transition-all active:scale-90"
               >
                 <Minus className="w-5 h-5" />
               </button>
@@ -585,9 +633,9 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
                   onBlur={() => {
                     if (!quantity || parseInt(quantity) < 1) setQuantity("1");
                   }}
-                  className="w-full bg-transparent text-center text-2xl font-black text-primary outline-none"
+                  className="w-full bg-transparent text-center text-2xl font-black text-foreground outline-none"
                 />
-                <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.2em] -mt-1">Unidades</span>
+                <span className="text-[7px] font-black text-white uppercase tracking-[0.2em] -mt-1">Unidades</span>
               </div>
 
               <button 
@@ -603,9 +651,9 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
           {/* Unit Preview - Visibility for 'Zeroing' Stock */}
           {!isIn && product && (
             <div className="rounded-2xl bg-white/[0.02] p-4 ring-1 ring-white/5 border border-white/5">
-              <div className="font-mono-tactical mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/20">STATUS DO INVENTÁRIO</div>
+              <div className="font-mono-tactical mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-white">STATUS DO INVENTÁRIO</div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white/60">Disponíveis para este modelo:</span>
+                <span className="text-xs font-bold text-white">Disponíveis para este modelo:</span>
                 <span className="font-mono-tactical text-xs font-black text-primary">
                   {products.filter(p => p.status === 'in_stock' && (p.name || "").toLowerCase().includes(product.toLowerCase())).length} UN
                 </span>
@@ -622,7 +670,15 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
             </button>
             <motion.button
               whileTap={{ scale: 0.96 }}
-              onClick={() => onSubmit(product, sku || "", imei || "", parseInt(quantity) || 1)}
+              onClick={() => onSubmit(
+                product, 
+                sku || "", 
+                imei || "", 
+                parseInt(quantity) || 1,
+                spec,
+                parseFloat(cost) || 0,
+                parseFloat(sale) || 0
+              )}
               className={`btn-tactical flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold ${
                 isIn
                   ? "bg-success text-success-foreground shadow-glow-success"

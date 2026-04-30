@@ -69,7 +69,7 @@ export const MovementsView = () => {
         className="space-y-3"
       >
         <div className="bg-black-piano neon-blue-border-thin group relative flex w-full items-center rounded-2xl px-4 py-3.5 shadow-[0_10px_40px_rgba(0,0,0,0.6)] transition-all focus-within:neon-blue-border">
-          <Search className="mr-3 h-5 w-5 text-white/30 transition-colors group-focus-within:text-primary" />
+          <Search className="mr-3 h-5 w-5 text-white transition-colors group-focus-within:text-primary" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -84,14 +84,14 @@ export const MovementsView = () => {
                 setDateFilter("all");
                 toast.info("Filtros resetados");
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/40 transition-all hover:bg-danger hover:text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white transition-all hover:bg-danger hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
             <div className="relative">
               <button 
                 onClick={() => setShowDateMenu(!showDateMenu)}
-                className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${dateFilter !== "all" ? "bg-primary text-black" : "bg-white/5 text-white/40 hover:bg-primary/20"}`}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${dateFilter !== "all" ? "bg-primary text-black" : "bg-white/5 text-white hover:bg-primary/20"}`}
               >
                 <CalendarIcon className="h-4 w-4" />
               </button>
@@ -106,7 +106,7 @@ export const MovementsView = () => {
                           setDateFilter(d);
                           setShowDateMenu(false);
                         }}
-                        className={`flex w-full items-center gap-3 rounded-xl p-3 text-[10px] font-black uppercase tracking-widest transition-all ${dateFilter === d ? "bg-primary text-black shadow-glow-cyan" : "text-white/40 hover:bg-white/5"}`}
+                        className={`flex w-full items-center gap-3 rounded-xl p-3 text-[10px] font-black uppercase tracking-widest transition-all ${dateFilter === d ? "bg-primary text-black shadow-glow-cyan" : "text-white hover:bg-white/5"}`}
                       >
                         <Clock className="h-4 w-4" />
                         {d === "all" ? "Tudo" : d === "today" ? "Hoje" : "Ontem"}
@@ -148,7 +148,7 @@ export const MovementsView = () => {
                     : k === "out"
                       ? "bg-danger text-white shadow-[0_0_20px_rgba(239,68,68,0.6)] scale-105"
                       : "bg-primary text-black shadow-[0_0_20px_rgba(0,163,255,0.6)] scale-105"
-                  : "text-white/30 hover:bg-white/5 hover:text-white"
+                  : "text-white hover:bg-white/5 hover:text-white"
               }`}
             >
               {k === "all" ? "Todos" : k === "in" ? "Entradas" : "Saídas"}
@@ -164,7 +164,7 @@ export const MovementsView = () => {
         className="bg-black-piano neon-blue-border space-y-2 rounded-3xl p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
       >
         {filtered.length === 0 ? (
-          <div className="py-20 text-center font-mono-tactical text-[11px] font-black uppercase tracking-[0.3em] text-white/20">
+          <div className="py-20 text-center font-mono-tactical text-[11px] font-black uppercase tracking-[0.3em] text-white">
             Nenhuma movimentação encontrada
           </div>
         ) : (
@@ -189,19 +189,19 @@ export const MovementsView = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="truncate text-lg font-black text-white group-hover:text-primary transition-colors tracking-tight">{m.productName}</span>
-                  <span className="font-mono-tactical text-[13px] font-black text-white/40 group-hover:text-white/90">{m.time}</span>
+                  <span className="font-mono-tactical text-[13px] font-black text-white group-hover:text-white">{m.time}</span>
                 </div>
                 {m.notes && (
                   <div className="font-mono-tactical text-[10px] font-bold text-primary/70 uppercase tracking-[0.1em] mb-1">
                     {m.notes}
                   </div>
                 )}
-                <div className="font-mono-tactical mt-2 flex flex-wrap items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.25em] text-white/20 group-hover:text-white/50">
+                <div className="font-mono-tactical mt-2 flex flex-wrap items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.25em] text-white group-hover:text-white">
                   <span className="bg-white/10 px-2.5 py-1 rounded-xl border border-white/10 group-hover:border-primary/50 group-hover:text-white transition-all">ID {m.displayImei}</span>
                   <span className="h-1.5 w-1.5 rounded-full bg-white/10 group-hover:bg-primary/50 transition-all"></span>
                   <span className="text-primary group-hover:text-primary-glow font-black">{m.operatorName}</span>
                   <span className="h-1.5 w-1.5 rounded-full bg-white/10 group-hover:bg-primary/50 transition-all"></span>
-                  <span className={`group-hover:text-white/80 ${m.date === new Date().toLocaleDateString('pt-BR') ? "text-primary/60" : ""}`}>
+                  <span className={`group-hover:text-white ${m.date === new Date().toLocaleDateString('pt-BR') ? "text-primary/60" : ""}`}>
                     {m.date === new Date().toLocaleDateString('pt-BR') ? "HOJE" : 
                      m.date === new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('pt-BR') ? "ONTEM" : m.date}
                   </span>

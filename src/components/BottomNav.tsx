@@ -67,7 +67,7 @@ export const BottomNav = ({ active, onChange }: BottomNavProps) => {
                 className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${
                   isActive
                     ? accent === "ai" ? "text-ai scale-110 shadow-[0_0_15px_rgba(168,85,247,0.4)]" : "text-primary scale-110 shadow-[0_0_15px_rgba(0,163,255,0.4)]"
-                    : "text-white/30 group-hover:text-white/60 group-hover:scale-105"
+                    : "text-white group-hover:text-white group-hover:scale-105"
                 }`}
               >
                 <Icon className={`h-6 w-6 ${isActive ? (accent === "ai" ? "drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" : "drop-shadow-[0_0_8px_rgba(0,163,255,0.8)]") : ""}`} />
@@ -76,7 +76,7 @@ export const BottomNav = ({ active, onChange }: BottomNavProps) => {
                 className={`font-mono-tactical font-black uppercase transition-all duration-300 ${
                   tabs.length > 4 ? "text-[7px] tracking-tight" : "text-[9px] tracking-widest"
                 } ${
-                  isActive ? (accent === "ai" ? "text-ai opacity-100" : "text-primary opacity-100") : "text-white/20 opacity-0 group-hover:opacity-60"
+                  isActive ? (accent === "ai" ? "text-ai opacity-100" : "text-primary opacity-100") : "text-white opacity-0 group-hover:opacity-60"
                 }`}
               >
                 {t.label}

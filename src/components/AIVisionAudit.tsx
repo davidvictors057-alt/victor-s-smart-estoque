@@ -67,7 +67,7 @@ export const AIVisionAudit: React.FC<AIVisionAuditProps> = ({ isOpen, onClose })
                   </div>
                 </div>
                 <button onClick={onClose} className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5 text-white/50" />
+                  <X className="w-5 h-5 text-white" />
                 </button>
               </div>
 
@@ -78,7 +78,7 @@ export const AIVisionAudit: React.FC<AIVisionAuditProps> = ({ isOpen, onClose })
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-lg">Inicie o Escaneamento</h3>
-                    <p className="text-white/40 text-sm px-10">Tire uma foto nítida das caixas dos produtos para que a IA conte e compare com o sistema.</p>
+                    <p className="text-white text-sm px-10">Tire uma foto nítida das caixas dos produtos para que a IA conte e compare com o sistema.</p>
                   </div>
                   <Button 
                     className="bg-cyan-500 hover:bg-cyan-400 text-black font-black px-8 h-14 rounded-2xl shadow-glow-cyan"
@@ -94,7 +94,7 @@ export const AIVisionAudit: React.FC<AIVisionAuditProps> = ({ isOpen, onClose })
                   <div className="relative">
                     <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
                   </div>
-                  <p className="text-white/60 text-sm animate-pulse font-medium">IA Analisando imagem e estoque...</p>
+                  <p className="text-white text-sm animate-pulse font-medium">IA Analisando imagem e estoque...</p>
                 </div>
               )}
 
@@ -105,7 +105,7 @@ export const AIVisionAudit: React.FC<AIVisionAuditProps> = ({ isOpen, onClose })
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] to-transparent" />
                     <div className="absolute bottom-4 left-4 flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-success animate-ping" />
-                      <span className="font-mono-tactical text-[10px] text-white/80 font-black tracking-widest uppercase">CAPTURA PROCESSADA</span>
+                      <span className="font-mono-tactical text-[10px] text-white font-black tracking-widest uppercase">CAPTURA PROCESSADA</span>
                     </div>
                   </div>
 
@@ -115,7 +115,7 @@ export const AIVisionAudit: React.FC<AIVisionAuditProps> = ({ isOpen, onClose })
                         h3: ({children}) => <h3 className="text-cyan-400 font-black uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4" /> {children}
                         </h3>,
-                        li: ({children}) => <li className="text-sm text-white/80 mb-2 border-b border-white/5 pb-2 last:border-0">{children}</li>,
+                        li: ({children}) => <li className="text-sm text-white mb-2 border-b border-white/5 pb-2 last:border-0">{children}</li>,
                         strong: ({children}) => <strong className="text-white font-bold">{children}</strong>
                       }}
                     >

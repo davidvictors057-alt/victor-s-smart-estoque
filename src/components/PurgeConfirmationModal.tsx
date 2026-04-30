@@ -80,7 +80,7 @@ export const PurgeConfirmationModal = ({ open, onClose }: PurgeConfirmationModal
                   <p className="text-sm font-black text-white uppercase tracking-tighter">Limpeza Total do Sistema</p>
                 </div>
               </div>
-              <button onClick={handleClose} className="text-white/20 hover:text-white transition-colors">
+              <button onClick={handleClose} className="text-white hover:text-white transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -90,10 +90,10 @@ export const PurgeConfirmationModal = ({ open, onClose }: PurgeConfirmationModal
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                   <div className="text-center space-y-2">
                     <Lock className="h-12 w-12 text-primary/40 mx-auto mb-4" />
-                    <p className="text-white/60 text-sm">Para iniciar o protocolo, confirme sua identidade de desenvolvedor.</p>
+                    <p className="text-white text-sm">Para iniciar o protocolo, confirme sua identidade de desenvolvedor.</p>
                   </div>
                   <div className="space-y-2">
-                    <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white/30 ml-1">DIGITE SEU PIN</label>
+                    <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white ml-1">DIGITE SEU PIN</label>
                     <input
                       type="password"
                       maxLength={6}
@@ -133,7 +133,7 @@ export const PurgeConfirmationModal = ({ open, onClose }: PurgeConfirmationModal
                   >
                     ESTOU CIENTE E DESEJO CONTINUAR
                   </button>
-                  <button onClick={handleClose} className="w-full text-white/40 text-[10px] font-mono-tactical uppercase tracking-widest py-2">
+                  <button onClick={handleClose} className="w-full text-white text-[10px] font-mono-tactical uppercase tracking-widest py-2">
                     CANCELAR OPERAÇÃO
                   </button>
                 </motion.div>
@@ -144,7 +144,7 @@ export const PurgeConfirmationModal = ({ open, onClose }: PurgeConfirmationModal
                   <div className="text-center space-y-2">
                     <ShieldAlert className="h-12 w-12 text-danger mx-auto mb-4 animate-bounce" />
                     <p className="text-danger font-black text-sm uppercase">CONFIRMAÇÃO FINAL EXIGIDA</p>
-                    <p className="text-white/40 text-[10px] uppercase font-mono-tactical">Digite seu PIN uma última vez para confirmar a purga do banco de dados.</p>
+                    <p className="text-white text-[10px] uppercase font-mono-tactical">Digite seu PIN uma última vez para confirmar a purga do banco de dados.</p>
                   </div>
                   <div className="space-y-2">
                     <input
@@ -176,7 +176,7 @@ export const PurgeConfirmationModal = ({ open, onClose }: PurgeConfirmationModal
 
             {/* Tactical Footer */}
             <div className="bg-black/40 p-4 text-center border-t border-white/5">
-              <p className="text-[8px] text-white/20 font-mono-tactical uppercase tracking-[0.3em]">
+              <p className="text-[8px] text-white font-mono-tactical uppercase tracking-[0.3em]">
                 Secure Purge Protocol v2.4 · Access Level: Developer
               </p>
             </div>

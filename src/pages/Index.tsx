@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { SplashScreen } from "@/components/SplashScreen";
 import { TopBar } from "@/components/TopBar";
@@ -92,6 +92,14 @@ const Index = () => {
 
   const activeTab = role === "admin" ? adminTab : employeeTab;
   const setTab = role === "admin" ? setAdminTab : setEmployeeTab;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to top on tab change
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [activeTab]);
 
   const renderContent = () => {
     if (role === "employee") {
@@ -133,7 +141,10 @@ const Index = () => {
              </div>
 
              {/* Main Scrollable Content Area */}
-             <div className="flex-1 overflow-y-auto custom-scrollbar pt-4 px-4 pb-36">
+             <div 
+               ref={scrollContainerRef}
+               className="flex-1 overflow-y-auto custom-scrollbar pt-4 px-4 pb-36"
+             >
                 <div className={`mx-auto transition-all duration-700 ease-in-out ${(role === "admin" && (adminTab === "ai" || adminTab === "dashboard")) || (role === "employee" && employeeTab === "chat") ? "max-w-5xl" : "max-w-2xl"}`}>
                   <AnimatePresence mode="wait">
                     <motion.div

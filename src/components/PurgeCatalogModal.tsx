@@ -80,7 +80,7 @@ export const PurgeCatalogModal = ({ open, onClose }: PurgeCatalogModalProps) => 
                   <p className="text-sm font-black text-white uppercase tracking-tighter">Limpar Catálogo de SKUs</p>
                 </div>
               </div>
-              <button onClick={handleClose} className="text-white/20 hover:text-white transition-colors">
+              <button onClick={handleClose} className="text-white hover:text-white transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -90,7 +90,7 @@ export const PurgeCatalogModal = ({ open, onClose }: PurgeCatalogModalProps) => 
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                   <div className="text-center space-y-2">
                     <Lock className="h-12 w-12 text-primary/40 mx-auto mb-4" />
-                    <p className="text-white/60 text-sm">Confirme seu PIN de administrador para gerenciar o catálogo.</p>
+                    <p className="text-white text-sm">Confirme seu PIN de administrador para gerenciar o catálogo.</p>
                   </div>
                   <div className="space-y-2">
                     <input
@@ -118,7 +118,7 @@ export const PurgeCatalogModal = ({ open, onClose }: PurgeCatalogModalProps) => 
                       <AlertTriangle className="h-6 w-6 shrink-0" />
                       <span className="font-black text-xs uppercase tracking-widest">AVISO DE LIMPEZA</span>
                     </div>
-                    <ul className="text-[11px] text-white/70 space-y-2 font-bold uppercase">
+                    <ul className="text-[11px] text-white space-y-2 font-bold uppercase">
                       <li>• Nomes personalizados serão deletados</li>
                       <li>• Referências de fotos premium removidas</li>
                       <li>• Histórico de custos/vendas zerado</li>
@@ -132,7 +132,7 @@ export const PurgeCatalogModal = ({ open, onClose }: PurgeCatalogModalProps) => 
                   >
                     CONTINUAR PARA CONFIRMAÇÃO
                   </button>
-                  <button onClick={handleClose} className="w-full text-white/40 text-[10px] font-mono-tactical uppercase tracking-widest py-2">
+                  <button onClick={handleClose} className="w-full text-white text-[10px] font-mono-tactical uppercase tracking-widest py-2">
                     ABORTAR
                   </button>
                 </motion.div>
@@ -143,7 +143,7 @@ export const PurgeCatalogModal = ({ open, onClose }: PurgeCatalogModalProps) => 
                   <div className="text-center space-y-2">
                     <ShieldAlert className="h-12 w-12 text-primary mx-auto mb-4 animate-bounce" />
                     <p className="text-primary font-black text-sm uppercase">VALIDAÇÃO FINAL</p>
-                    <p className="text-white/40 text-[10px] uppercase font-mono-tactical">Digite seu PIN pela última vez para confirmar a limpeza do catálogo.</p>
+                    <p className="text-white text-[10px] uppercase font-mono-tactical">Digite seu PIN pela última vez para confirmar a limpeza do catálogo.</p>
                   </div>
                   <div className="space-y-2">
                     <input
@@ -175,7 +175,7 @@ export const PurgeCatalogModal = ({ open, onClose }: PurgeCatalogModalProps) => 
 
             {/* Tactical Footer */}
             <div className="bg-black/40 p-4 text-center border-t border-white/5">
-              <p className="text-[8px] text-white/20 font-mono-tactical uppercase tracking-[0.3em]">
+              <p className="text-[8px] text-white font-mono-tactical uppercase tracking-[0.3em]">
                 Catalog Purge Protocol v1.0 · Admin Override Required
               </p>
             </div>

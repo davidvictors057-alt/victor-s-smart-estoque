@@ -132,7 +132,7 @@ export const AuditVideoScanner = ({ onComplete, onCancel }: AuditVideoScannerPro
       <div className="bg-black-piano p-8 flex items-center justify-between gap-6 border-t border-white/5">
         <button 
           onClick={onCancel}
-          className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 text-white/40 hover:text-white transition-all"
+          className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 text-white hover:text-white transition-all"
         >
           <RotateCcw className="h-6 w-6" />
         </button>

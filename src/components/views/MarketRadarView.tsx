@@ -84,7 +84,7 @@ export const MarketRadarView = () => {
               RADAR DE ARBITRAGEM
             </div>
             <div className="text-2xl font-black text-white text-glow-cyan">Monitor de Mercado</div>
-            <div className="font-mono-tactical mt-1 text-[10px] font-black uppercase tracking-widest text-white/20">
+            <div className="font-mono-tactical mt-1 text-[10px] font-black uppercase tracking-widest text-white">
               Sincronizado com Mercado Livre Platinum
             </div>
           </div>
@@ -98,7 +98,7 @@ export const MarketRadarView = () => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Pesquisar item para análise..."
-          className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white/10"
+          className="flex-1 bg-transparent font-black text-sm text-white outline-none placeholder:text-white"
         />
       </div>
 
@@ -109,6 +109,7 @@ export const MarketRadarView = () => {
           const insight = aiInsights[key];
           const isLoading = loadingItems[key];
           const lowestPrice = results?.[0]?.price;
+          const isSimulation = results?.[0]?.isSimulation;
           
           return (
             <motion.div
@@ -126,7 +127,7 @@ export const MarketRadarView = () => {
                   <div>
                     <h3 className="text-lg font-black text-white leading-tight">{item.name}</h3>
                     <div className="font-mono-tactical text-[10px] text-primary uppercase tracking-widest mt-1">EAN: {item.sku || "N/A"}</div>
-                    <div className="font-mono-tactical text-[9px] text-white/20 uppercase mt-1">Seu Custo: R$ {item.buy_price || item.cost || 0}</div>
+                    <div className="font-mono-tactical text-[9px] text-white uppercase mt-1">Seu Custo: R$ {item.buy_price || item.cost || 0}</div>
                   </div>
                 </div>
                 <button 
@@ -142,16 +143,28 @@ export const MarketRadarView = () => {
                 <div className="space-y-6">
                   {/* Grid de Preços */}
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
-                      <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase mb-1">MENOR PLATINUM</div>
-                      <div className="text-lg font-black text-emerald-400">R$ {lowestPrice}</div>
+                    <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5 relative overflow-hidden group">
+                      {isSimulation && (
+                        <div className="absolute top-0 left-0 w-full h-full bg-emerald-500/5 animate-pulse" />
+                      )}
+                      <div className="font-mono-tactical text-[8px] font-black text-white uppercase mb-1 flex items-center gap-1">
+                        {isSimulation ? (
+                          <>
+                            <Zap className="h-2 w-2 text-emerald-400" />
+                            ESTIMATIVA IA
+                          </>
+                        ) : (
+                          "MENOR PLATINUM"
+                        )}
+                      </div>
+                      <div className={`text-lg font-black ${isSimulation ? 'text-emerald-400' : 'text-emerald-400'}`}>R$ {lowestPrice}</div>
                     </div>
                     <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5 text-center">
-                      <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase mb-1">SEU PREÇO</div>
+                      <div className="font-mono-tactical text-[8px] font-black text-white uppercase mb-1">SEU PREÇO</div>
                       <div className="text-lg font-black text-white">R$ {item.sale || 0}</div>
                     </div>
                     <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5 text-right">
-                      <div className="font-mono-tactical text-[8px] font-black text-white/30 uppercase mb-1">DIFERENÇA</div>
+                      <div className="font-mono-tactical text-[8px] font-black text-white uppercase mb-1">DIFERENÇA</div>
                       <div className={`text-lg font-black ${item.sale < lowestPrice ? 'text-emerald-400' : 'text-rose-500'}`}>
                         {(((item.sale - lowestPrice) / lowestPrice) * 100).toFixed(1)}%
                       </div>
@@ -173,8 +186,8 @@ export const MarketRadarView = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[9px] font-black text-white/20 uppercase">TAXAS ML</div>
-                          <div className="text-sm font-black text-white/40">R$ {profitData.mlFee}</div>
+                          <div className="text-[9px] font-black text-white uppercase">TAXAS ML</div>
+                          <div className="text-sm font-black text-white">R$ {profitData.mlFee}</div>
                         </div>
                       </div>
                     );
@@ -190,9 +203,11 @@ export const MarketRadarView = () => {
                       >
                         <div className="flex items-center gap-2 mb-3">
                           <Zap className="h-4 w-4 text-ai" />
-                          <span className="font-mono-tactical text-[10px] font-black text-ai uppercase tracking-widest">IA MARKET INSIGHT</span>
+                          <span className="font-mono-tactical text-[10px] font-black text-ai uppercase tracking-widest">
+                            {isSimulation ? "INSIGHT TÁTICO (DEMO)" : "IA MARKET INSIGHT"}
+                          </span>
                         </div>
-                        <div className="prose prose-invert prose-sm max-w-none text-white/80 leading-relaxed font-medium">
+                        <div className="prose prose-invert prose-sm max-w-none text-white leading-relaxed font-medium">
                           <ReactMarkdown>{insight}</ReactMarkdown>
                         </div>
                       </motion.div>
@@ -203,15 +218,15 @@ export const MarketRadarView = () => {
                   <a 
                     href={results[0].permalink} 
                     target="_blank" 
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
                   >
                     VER CONCORRENTE NO ML <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-white/5 rounded-3xl">
-                  <Activity className="h-8 w-8 text-white/10 mb-3" />
-                  <p className="text-[10px] font-black text-white/20 uppercase tracking-widest text-center px-10">
+                  <Activity className="h-8 w-8 text-white mb-3" />
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest text-center px-10">
                     Aguardando varredura estratégica de mercado para este EAN
                   </p>
                 </div>

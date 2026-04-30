@@ -51,7 +51,7 @@ export const SupportTicketsView = () => {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${filter === f ? 'bg-primary text-black border-primary' : 'bg-white/5 text-white/40 border-white/10'}`}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${filter === f ? 'bg-primary text-black border-primary' : 'bg-white/5 text-white border-white/10'}`}
             >
               {f === 'all' ? 'Todos' : f === 'open' ? 'Abertos' : f === 'in_progress' ? 'Em Progresso' : 'Resolvidos'}
             </button>
@@ -59,7 +59,7 @@ export const SupportTicketsView = () => {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white" />
           <input
             type="text"
             placeholder="Buscar por ticket ou funcionário..."
@@ -91,7 +91,7 @@ export const SupportTicketsView = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors">{ticket.user?.full_name || 'Usuário Desconhecido'}</h3>
-                  <div className="flex items-center gap-2 text-[10px] text-white/40 uppercase tracking-widest mt-0.5">
+                  <div className="flex items-center gap-2 text-[10px] text-white uppercase tracking-widest mt-0.5">
                     <Clock className="h-3 w-3" /> {new Date(ticket.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -99,8 +99,8 @@ export const SupportTicketsView = () => {
               {getPriorityBadge(ticket.priority)}
             </div>
 
-            <h4 className="text-xs font-black uppercase tracking-widest text-white/80 mb-2">{ticket.subject}</h4>
-            <p className="text-xs text-white/60 leading-relaxed mb-4 line-clamp-2">{ticket.description}</p>
+            <h4 className="text-xs font-black uppercase tracking-widest text-white mb-2">{ticket.subject}</h4>
+            <p className="text-xs text-white leading-relaxed mb-4 line-clamp-2">{ticket.description}</p>
 
             {selectedTicket?.id === ticket.id && (
               <motion.div
@@ -110,13 +110,13 @@ export const SupportTicketsView = () => {
               >
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] uppercase tracking-widest text-white/40 mb-1 flex items-center gap-1">
+                    <p className="text-[9px] uppercase tracking-widest text-white mb-1 flex items-center gap-1">
                       <Smartphone className="h-3 w-3" /> Contexto
                     </p>
                     <p className="text-[10px] text-white font-bold">{ticket.context?.screen || 'N/A'}</p>
                   </div>
                   <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] uppercase tracking-widest text-white/40 mb-1 flex items-center gap-1">
+                    <p className="text-[9px] uppercase tracking-widest text-white mb-1 flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> Status
                     </p>
                     <p className="text-[10px] text-white font-bold uppercase tracking-widest">{ticket.status}</p>

@@ -152,7 +152,7 @@ export const ProfileView = () => {
               {isAdmin ? "NÍVEL: ADM MASTER" : "NÍVEL: OPERADOR TÁTICO"}
             </div>
             
-            <p className="mt-4 max-w-[250px] text-xs font-medium leading-relaxed text-white/50">
+            <p className="mt-4 max-w-[250px] text-xs font-medium leading-relaxed text-white">
               {currentUser?.bio || "Nenhuma biografia tática definida ainda."}
             </p>
           </div>
@@ -162,7 +162,7 @@ export const ProfileView = () => {
             <button
               onClick={() => setActiveTab("general")}
               className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                activeTab === "general" ? "bg-primary text-black shadow-glow-cyan" : "text-white/40 hover:text-white"
+                activeTab === "general" ? "bg-primary text-black shadow-glow-cyan" : "text-white hover:text-white"
               }`}
             >
               <User className="h-3.5 w-3.5" />
@@ -171,7 +171,7 @@ export const ProfileView = () => {
             <button
               onClick={() => setActiveTab("appearance")}
               className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                activeTab === "appearance" ? "bg-primary text-black shadow-glow-cyan" : "text-white/40 hover:text-white"
+                activeTab === "appearance" ? "bg-primary text-black shadow-glow-cyan" : "text-white hover:text-white"
               }`}
             >
               <Palette className="h-3.5 w-3.5" />
@@ -198,7 +198,7 @@ export const ProfileView = () => {
                   <div className="mt-1 font-mono-tactical text-xs sm:text-lg font-black text-white truncate">
                     {s.value}
                   </div>
-                  <div className="mt-0.5 text-[6px] sm:text-[8px] font-black uppercase tracking-tighter sm:tracking-widest text-white/30 whitespace-nowrap">
+                  <div className="mt-0.5 text-[6px] sm:text-[8px] font-black uppercase tracking-tighter sm:tracking-widest text-white whitespace-nowrap">
                     {s.label}
                   </div>
                 </div>
@@ -208,7 +208,7 @@ export const ProfileView = () => {
             {/* Editable Info Section */}
             <div className={`rounded-3xl p-6 ${cardClass}`}>
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/40">
+                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white">
                   <Info className="h-3.5 w-3.5 text-primary" />
                   Informações de Perfil
                 </h3>
@@ -224,7 +224,7 @@ export const ProfileView = () => {
 
               <div className="space-y-6">
                 <div>
-                  <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-white/20">Slogan Tático (Bio)</label>
+                  <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-white">Slogan Tático (Bio)</label>
                   {editMode ? (
                     <textarea 
                       value={tempBio}
@@ -234,7 +234,7 @@ export const ProfileView = () => {
                       rows={3}
                     />
                   ) : (
-                    <div className="rounded-xl bg-white/5 p-4 text-sm font-medium text-white/80 border border-white/5">
+                    <div className="rounded-xl bg-white/5 p-4 text-sm font-medium text-white border border-white/5">
                       {currentUser?.bio || "Sem biografia."}
                     </div>
                   )}
@@ -242,9 +242,9 @@ export const ProfileView = () => {
 
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-white/20">Contato Direto</label>
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-white">Contato Direto</label>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+                      <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
                       <input 
                         disabled={!editMode}
                         type="text" 
@@ -256,14 +256,14 @@ export const ProfileView = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-white/20">Email Corporativo</label>
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-white">Email Corporativo</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+                      <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
                       <input 
                         disabled
                         type="text" 
                         value={currentUser?.email || "operador@victors.app"}
-                        className="w-full rounded-xl bg-white/5 border border-white/10 p-4 pl-12 text-sm text-white/30"
+                        className="w-full rounded-xl bg-white/5 border border-white/10 p-4 pl-12 text-sm text-white"
                       />
                     </div>
                   </div>
@@ -282,11 +282,11 @@ export const ProfileView = () => {
             {/* Color Accent Selection */}
             <div className={`rounded-3xl p-6 ${cardClass}`}>
               <div className="mb-6">
-                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/40">
+                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white">
                   <Palette className="h-3.5 w-3.5 text-primary" />
                   Cor do Acento Tático
                 </h3>
-                <p className="mt-1 text-[10px] text-white/20">Selecione o tom dos neons e botões da sua interface.</p>
+                <p className="mt-1 text-[10px] text-white">Selecione o tom dos neons e botões da sua interface.</p>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -307,7 +307,7 @@ export const ProfileView = () => {
                         boxShadow: `0 0 20px ${color.hex}44`
                       }}
                     />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white group-hover:text-white transition-colors">
                       {color.name}
                     </span>
                     {currentUser?.accent_color === color.value && (
@@ -323,11 +323,11 @@ export const ProfileView = () => {
             {/* Interface Style Selection */}
             <div className={`rounded-3xl p-6 ${cardClass}`}>
               <div className="mb-6">
-                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/40">
+                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white">
                   <Layout className="h-3.5 w-3.5 text-primary" />
                   Estilo da Interface
                 </h3>
-                <p className="mt-1 text-[10px] text-white/20">Escolha como os painéis e o fundo se comportam.</p>
+                <p className="mt-1 text-[10px] text-white">Escolha como os painéis e o fundo se comportam.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -398,7 +398,7 @@ export const ProfileView = () => {
                   <div className="font-mono-tactical text-[10px] font-black uppercase tracking-[0.4em] text-primary">RECRUTAMENTO VISUAL</div>
                   <div className="text-xl font-black text-white">Identidade de Avatar</div>
                 </div>
-                <button onClick={() => setAvatarPickerOpen(false)} className="h-10 w-10 rounded-full bg-white/5 flex items-center justify-center text-white/40"><X /></button>
+                <button onClick={() => setAvatarPickerOpen(false)} className="h-10 w-10 rounded-full bg-white/5 flex items-center justify-center text-white"><X /></button>
               </div>
               <div className="grid grid-cols-4 gap-4 overflow-y-auto pr-2 custom-scrollbar no-scrollbar">
                 {avatarOptions.map((url, i) => (

@@ -275,14 +275,14 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
             <button 
               onClick={() => setShowOnlyIdentified(!showOnlyIdentified)}
               className={`px-4 py-2 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all ${
-                showOnlyIdentified ? 'bg-primary text-black border-primary shadow-glow-cyan' : 'bg-white/5 text-white/40 border-white/10'
+                showOnlyIdentified ? 'bg-primary text-black border-primary shadow-glow-cyan' : 'bg-white/5 text-white border-white/10'
               }`}
             >
               {showOnlyIdentified ? "VER TUDO" : "FILTRAR BIPADOS"}
             </button>
             <button 
               onClick={onClose}
-              className="h-12 w-12 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all active:scale-95 border border-white/10"
+              className="h-12 w-12 rounded-xl bg-white/5 flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-all active:scale-95 border border-white/10"
             >
               <RefreshCcw className="h-5 w-5" />
             </button>
@@ -295,19 +295,19 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
                 <div className="h-3 w-3 rounded-full bg-primary animate-pulse shadow-[0_0_10px_#00A3FF]" />
-                <span className="text-[11px] font-black text-white/60 uppercase tracking-[0.2em]">Auditoria de Estoque</span>
+                <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Auditoria de Estoque</span>
               </div>
               
               <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                 <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/5 flex items-center gap-2">
-                  <span className="text-[8px] font-bold text-white/30 uppercase">SKUs:</span>
+                  <span className="text-[8px] font-bold text-white uppercase">SKUs:</span>
                   <span className="text-xs font-mono-tactical text-primary font-black">
                     {items.filter(i => i.isAudited).length}/{expected.length}
                   </span>
                 </div>
                 
                 <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/5 flex items-center gap-2">
-                  <span className="text-[8px] font-bold text-white/30 uppercase">Eficiência:</span>
+                  <span className="text-[8px] font-bold text-white uppercase">Eficiência:</span>
                   <span className="text-xs font-black text-primary italic">
                     {Math.round((items.filter(i => i.isAudited).length / expected.length) * 100)}%
                   </span>
@@ -379,7 +379,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className={`h-2 w-2 rounded-full ${item.diff === 0 ? 'bg-success' : 'bg-rose-500 animate-pulse'}`} />
-                        <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Produto / Registro</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">Produto / Registro</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {item.diff !== 0 && (
@@ -419,15 +419,15 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                   {/* Comparativo Tático */}
                   <div className="grid grid-cols-3 gap-2 bg-black/40 rounded-2xl p-3 border border-white/5">
                     <div className="text-center space-y-0.5">
-                      <p className="text-[7px] font-black text-white/20 uppercase tracking-widest">Sistema</p>
-                      <p className="text-sm font-black text-white/60">{item.expected}</p>
+                      <p className="text-[7px] font-black text-white uppercase tracking-widest">Sistema</p>
+                      <p className="text-sm font-black text-white">{item.expected}</p>
                     </div>
                     <div className="text-center space-y-0.5 border-x border-white/5">
                       <p className="text-[7px] font-black text-primary/40 uppercase tracking-widest">Físico</p>
                       <p className={`text-sm font-black ${item.diff === 0 ? 'text-primary' : 'text-rose-500'}`}>{item.identified}</p>
                     </div>
                     <div className="text-center space-y-0.5">
-                      <p className="text-[7px] font-black text-white/20 uppercase tracking-widest">Diferença</p>
+                      <p className="text-[7px] font-black text-white uppercase tracking-widest">Diferença</p>
                       <p className={`text-sm font-black ${item.diff === 0 ? 'text-success' : 'text-rose-500'}`}>
                         {item.diff > 0 ? `+${item.diff}` : item.diff}
                       </p>
@@ -438,7 +438,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => handleUpdateFinal(originalIndex, item.final - 1)}
-                      className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all active:scale-90 border border-white/10"
+                      className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-all active:scale-90 border border-white/10"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
@@ -488,7 +488,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
         
         <button 
           onClick={handleExportPDF}
-          className="h-12 px-5 rounded-2xl bg-white/5 border border-white/10 font-black text-white/60 hover:bg-white/10 flex items-center justify-center gap-2 transition-all uppercase text-[9px] tracking-widest"
+          className="h-12 px-5 rounded-2xl bg-white/5 border border-white/10 font-black text-white hover:bg-white/10 flex items-center justify-center gap-2 transition-all uppercase text-[9px] tracking-widest"
         >
           <FileDown className="h-4 w-4" /> <span>PDF</span>
         </button>
@@ -526,7 +526,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
 
               <div className="bg-black/40 rounded-3xl p-6 border border-white/5 space-y-4 mb-8">
                 <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                  <span className="text-xs font-black text-white/30 uppercase">Esperado (Sistema)</span>
+                  <span className="text-xs font-black text-white uppercase">Esperado (Sistema)</span>
                   <span className="text-xl font-black text-white">{selectedItem.expected} un</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-white/5 pb-4">
@@ -562,7 +562,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                     doc.text(`Diferença: ${selectedItem.diff}`, 20, 80);
                     doc.save(`divergencia_${selectedItem.sku || 'item'}.pdf`);
                   }}
-                  className="h-14 rounded-2xl bg-white/5 border border-white/10 font-black text-white/60 text-[10px] tracking-widest uppercase flex items-center justify-center gap-2"
+                  className="h-14 rounded-2xl bg-white/5 border border-white/10 font-black text-white text-[10px] tracking-widest uppercase flex items-center justify-center gap-2"
                 >
                   <FileDown className="h-4 w-4" /> PDF
                 </button>
@@ -570,7 +570,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
 
               <button 
                 onClick={() => setSelectedItem(null)}
-                className="w-full h-14 rounded-2xl bg-white/5 font-black text-white/20 text-[10px] tracking-widest uppercase hover:text-white transition-all"
+                className="w-full h-14 rounded-2xl bg-white/5 font-black text-white text-[10px] tracking-widest uppercase hover:text-white transition-all"
               >
                 FECHAR DETALHES
               </button>

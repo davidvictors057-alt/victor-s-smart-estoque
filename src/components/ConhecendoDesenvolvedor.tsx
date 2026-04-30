@@ -40,7 +40,7 @@ export function ConhecendoDesenvolvedor({ isOpen, onClose }: ConhecendoDesenvolv
           
           <button 
             onClick={onClose}
-            className="fixed top-8 right-8 z-[1010] p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white/80 transition-all hover:scale-110 active:scale-95 group"
+            className="fixed top-8 right-8 z-[1010] p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white transition-all hover:scale-110 active:scale-95 group"
           >
             <X size={28} className="group-hover:rotate-90 transition-transform duration-300" />
           </button>
@@ -146,7 +146,7 @@ export function ConhecendoDesenvolvedor({ isOpen, onClose }: ConhecendoDesenvolv
                       <div className="space-y-1">
                         <span className="text-[10px] font-black tracking-[0.2em] text-primary/80 uppercase">{item.tag}</span>
                         <h3 className="text-base font-black text-white tracking-tight uppercase leading-tight">{item.title}</h3>
-                        <p className="text-xs text-white/50 leading-relaxed pt-2 italic">{item.desc}</p>
+                        <p className="text-xs text-white leading-relaxed pt-2 italic">{item.desc}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -180,7 +180,7 @@ export function ConhecendoDesenvolvedor({ isOpen, onClose }: ConhecendoDesenvolv
                 </div>
                 
                 <div className="w-full">
-                  <p className="text-white/80 text-xs lg:text-xl leading-relaxed italic font-medium text-justify break-words">
+                  <p className="text-white text-xs lg:text-xl leading-relaxed italic font-medium text-justify break-words">
                     "David atua na vanguarda da tecnologia aplicada à gestão, onde seu trabalho como Engenheiro de Sistemas integra o rigor analítico da Física e da Inteligência Artificial à automação de processos. O <strong>Victor's Smart Estoque v2.0</strong> é a materialização desta jornada: uma solução de engenharia desenhada para a excelência operacional e rentabilidade estratégica."
                   </p>
                 </div>
@@ -202,7 +202,7 @@ export function ConhecendoDesenvolvedor({ isOpen, onClose }: ConhecendoDesenvolv
               </div>
             </motion.div>
 
-            <div className="mt-12 pb-32 flex items-center justify-center gap-4 text-[9px] font-black uppercase tracking-[0.4em] text-white/10">
+            <div className="mt-12 pb-32 flex items-center justify-center gap-4 text-[9px] font-black uppercase tracking-[0.4em] text-white">
                <span>Systems Architecture</span>
                <div className="w-1 h-1 bg-white/10 rounded-full" />
                <span>David Ferreira</span>

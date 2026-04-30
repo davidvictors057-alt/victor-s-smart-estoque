@@ -39,12 +39,24 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
     if (!message.trim()) return;
     setIsSubmitting(true);
     
-    // Simulação de resposta da IA (no futuro integrar com Gemini real)
-    setTimeout(() => {
-      setAiResponse(`Com base no Manual Victor's Celulares, para resolver '${message}', recomendo verificar o nível de bateria do dispositivo e o status do sistema na aba Central. Caso persista, gere um Ticket Urgente.`);
+    try {
+      const { aiService } = await import('@/services/aiService');
+      const response = await aiService.chat(
+        `O usuário está relatando um problema e solicitou triagem: "${message}". Forneça um diagnóstico tático curto e sugira o próximo passo.`,
+        [],
+        currentContext
+      );
+      setAiResponse(response.text);
+      // Podemos armazenar o modelo se quisermos mostrar no rodapé
+      (window as any).lastTriageModel = response.model;
+      (window as any).lastTriageTime = response.time;
       setView("ai_response");
+    } catch (error) {
+      console.error("AI Triage Error:", error);
+      toast.error("Falha na triagem neural.");
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   const handleSubmitTicket = async () => {
@@ -122,7 +134,7 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
               </div>
               <button
                 onClick={onClose}
-                className="rounded-xl bg-white/5 p-2 text-white/40 transition-all hover:bg-danger/20 hover:text-danger"
+                className="rounded-xl bg-white/5 p-2 text-white transition-all hover:bg-danger/20 hover:text-danger"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -132,13 +144,13 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
             <div className="flex border-b border-white/5 px-4 py-2 bg-white/[0.02]">
               <button 
                 onClick={() => setView("form")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all text-[10px] font-bold uppercase tracking-widest ${view === "form" ? "bg-primary/10 text-primary" : "text-white/40 hover:text-white"}`}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all text-[10px] font-bold uppercase tracking-widest ${view === "form" ? "bg-primary/10 text-primary" : "text-white hover:text-white"}`}
               >
                 <MessageSquare className="h-3 w-3" /> NOVO CHAMADO
               </button>
               <button 
                 onClick={() => setView("history")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all text-[10px] font-bold uppercase tracking-widest ${view === "history" ? "bg-primary/10 text-primary" : "text-white/40 hover:text-white"}`}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all text-[10px] font-bold uppercase tracking-widest ${view === "history" ? "bg-primary/10 text-primary" : "text-white hover:text-white"}`}
               >
                 <History className="h-3 w-3" /> MEUS TICKETS
               </button>
@@ -153,19 +165,19 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
                   <h3 className="font-mono-tactical text-base font-black uppercase tracking-widest text-success">
                     OPERAÇÃO ENVIADA
                   </h3>
-                  <p className="mt-3 text-xs text-white/50 max-w-[200px]">Ticket registrado com sucesso. Aguarde processamento.</p>
+                  <p className="mt-3 text-xs text-white max-w-[200px]">Ticket registrado com sucesso. Aguarde processamento.</p>
                 </div>
               ) : view === "form" ? (
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white/40 ml-1">Prioridade da Missão</label>
+                    <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white ml-1">Prioridade da Missão</label>
                     <div className="grid grid-cols-4 gap-2">
                       {(['low', 'medium', 'high', 'emergency'] as const).map((p) => (
                         <button
                           key={p}
                           type="button"
                           onClick={() => setPriority(p)}
-                          className={`py-2 rounded-lg text-[9px] font-bold uppercase border transition-all ${priority === p ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(0,163,255,0.3)]' : 'bg-white/5 border-white/10 text-white/40'}`}
+                          className={`py-2 rounded-lg text-[9px] font-bold uppercase border transition-all ${priority === p ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(0,163,255,0.3)]' : 'bg-white/5 border-white/10 text-white'}`}
                         >
                           {p === 'low' && 'Baixa'}
                           {p === 'medium' && 'Média'}
@@ -177,7 +189,7 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white/40 ml-1">Descrição do Incidente</label>
+                    <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white ml-1">Descrição do Incidente</label>
                     <textarea
                       required
                       value={message}
@@ -262,9 +274,9 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
                         }}
                         className="w-full p-6 rounded-2xl bg-white/5 border border-dashed border-white/10 text-center group hover:bg-white/[0.08] hover:border-primary/50 transition-all cursor-pointer"
                       >
-                        <AlertTriangle className="h-8 w-8 text-white/10 mx-auto mb-3 group-hover:text-amber-500 transition-colors" />
-                        <h4 className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white/40 group-hover:text-primary transition-colors">Linha Vermelha Inativa</h4>
-                        <p className="text-[8px] text-white/20 uppercase tracking-widest mt-1 group-hover:text-white/60">Clique para configurar no Painel Admin &gt; Configurações</p>
+                        <AlertTriangle className="h-8 w-8 text-white mx-auto mb-3 group-hover:text-amber-500 transition-colors" />
+                        <h4 className="font-mono-tactical text-[10px] font-black uppercase tracking-widest text-white group-hover:text-primary transition-colors">Linha Vermelha Inativa</h4>
+                        <p className="text-[8px] text-white uppercase tracking-widest mt-1 group-hover:text-white">Clique para configurar no Painel Admin &gt; Configurações</p>
                       </motion.button>
                     )}
                   </div>
@@ -289,8 +301,8 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
                           </div>
                         </div>
                         <h4 className="text-xs font-bold text-white mb-1 line-clamp-1">{t.subject}</h4>
-                        <p className="text-[10px] text-white/40 line-clamp-2 leading-relaxed">{t.description}</p>
-                        <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[8px] text-white/20 uppercase tracking-widest">
+                        <p className="text-[10px] text-white line-clamp-2 leading-relaxed">{t.description}</p>
+                        <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[8px] text-white uppercase tracking-widest">
                           <span>{new Date(t.created_at).toLocaleDateString()}</span>
                           <button className="text-primary/60 hover:text-primary transition-colors">VER DETALHES</button>
                         </div>
@@ -305,15 +317,26 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
                       <Bot className="h-5 w-5" />
                       <h4 className="text-[10px] font-black uppercase tracking-widest">Diagnóstico Victor AI</h4>
                     </div>
-                    <p className="text-xs text-white/80 leading-relaxed italic">
+                    <p className="text-xs text-white leading-relaxed italic">
                       "{aiResponse}"
                     </p>
+                    <div className="mt-4 pt-2 border-t border-primary/10 flex items-center justify-between opacity-50">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1 w-1 rounded-full bg-primary" />
+                        <span className="text-[7px] font-black uppercase tracking-widest text-white">
+                          {(window as any).lastTriageModel || 'Neural Engine'}
+                        </span>
+                      </div>
+                      <span className="text-[7px] font-black uppercase tracking-widest text-white">
+                        {(window as any).lastTriageTime ? `${(window as any).lastTriageTime}s` : ''}
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="space-y-3">
                     <button 
                       onClick={() => setView("form")}
-                      className="w-full py-4 rounded-2xl bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/10 transition-all"
+                      className="w-full py-4 rounded-2xl bg-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all"
                     >
                       NÃO RESOLVEU, VOLTAR AO FORMULÁRIO
                     </button>
@@ -330,7 +353,7 @@ export const SupportModal = ({ open, onClose }: SupportModalProps) => {
 
             {/* Footer */}
             <div className="bg-white/5 px-8 py-4 flex justify-center">
-               <div className="font-mono-tactical text-[8px] uppercase tracking-[0.3em] text-white/20">
+               <div className="font-mono-tactical text-[8px] uppercase tracking-[0.3em] text-white">
                 Victor's Smart Estoque · v2.0
               </div>
             </div>

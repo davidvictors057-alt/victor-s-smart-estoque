@@ -134,7 +134,7 @@ export const ChangePinModal = ({ open, onClose }: ChangePinModalProps) => {
                 <h2 className="mt-1 text-xl font-black text-white">
                   {step === "new" ? "Novo PIN de Acesso" : "Confirme seu PIN"}
                 </h2>
-                <p className="mt-2 text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                <p className="mt-2 text-[10px] font-bold text-white uppercase tracking-widest">
                   {updating ? "SINCRONIZANDO CRIPTOGRAFIA..." : "DIGITE 6 DÍGITOS NUMÉRICOS"}
                 </p>
               </div>
@@ -185,7 +185,7 @@ export const ChangePinModal = ({ open, onClose }: ChangePinModalProps) => {
               <button
                 onClick={onClose}
                 disabled={updating}
-                className="mt-2 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-danger transition-colors"
+                className="mt-2 text-[10px] font-black uppercase tracking-widest text-white hover:text-danger transition-colors"
               >
                 Cancelar Operação
               </button>
@@ -194,7 +194,7 @@ export const ChangePinModal = ({ open, onClose }: ChangePinModalProps) => {
             {/* Tactical Close Button */}
             <button
               onClick={onClose}
-              className="absolute right-6 top-6 rounded-xl p-2 text-white/20 hover:bg-white/5 hover:text-white transition-all"
+              className="absolute right-6 top-6 rounded-xl p-2 text-white hover:bg-white/5 hover:text-white transition-all"
             >
               <X className="h-5 w-5" />
             </button>

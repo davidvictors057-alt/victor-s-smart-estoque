@@ -11,6 +11,7 @@ import {
   Truck,
   ChevronRight,
   Info,
+  X,
   Image as ImageIcon
 } from "lucide-react";
 import { useStore } from "@/store/useStore";
@@ -36,10 +37,19 @@ export const AIVisionAuditView = () => {
   const scannedSKUsRef = useRef<Set<string>>(new Set());
   const [inputMode, setInputMode] = useState<'photo' | 'scan'>('scan'); // Default para Bipe
   const [isManualMode, setIsManualMode] = useState(false);
+  const [lastModel, setLastModel] = useState<string | null>(null);
   
   const { products } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+  // Auto-scroll on view changes
+  useEffect(() => {
+    const mainScroll = document.querySelector('.custom-scrollbar');
+    if (mainScroll) {
+      mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [auditMode, showHub]);
 
   const stopAi = () => {
     if (abortController) {
@@ -77,6 +87,7 @@ export const AIVisionAuditView = () => {
             expectedData,
             controller.signal
           );
+          setLastModel(result.modelUsed);
 
           try {
             const jsonMatch = result.text.match(/\{.*\}/s);
@@ -206,6 +217,7 @@ export const AIVisionAuditView = () => {
             expectedData,
             controller.signal
           );
+          setLastModel(result.modelUsed);
 
           const jsonMatch = result.text.match(/\{.*\}/s);
           if (jsonMatch) {
@@ -257,6 +269,7 @@ export const AIVisionAuditView = () => {
         // Somente enviar para a IA o que não temos no banco local nem no catálogo
         if (unknownSKUs.length > 0) {
           const resolution = await aiService.resolveSKUs(unknownSKUs, controller.signal);
+          setLastModel(resolution.modelUsed);
           if (resolution.identified) {
             const enriched = resolution.identified.map((item: any) => {
               // Aprender SKU novo no catálogo
@@ -314,10 +327,18 @@ export const AIVisionAuditView = () => {
             <Eye className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <div className="font-mono-tactical text-[8px] font-black uppercase tracking-[0.2em] text-primary/70">
+            <div className="font-mono-tactical text-[8px] font-black uppercase tracking-[0.2em] text-primary">
               AUDITORIA VISUAL
             </div>
             <div className="text-lg font-black text-white">AIVision Audit</div>
+            {lastModel && (
+              <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                <Zap className="h-3 w-3 text-primary animate-pulse" />
+                <span className="text-[8px] font-black text-primary uppercase tracking-widest">
+                  {lastModel}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -329,7 +350,7 @@ export const AIVisionAuditView = () => {
           <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em]">Neural Engine v6.3</span>
         </div>
         <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Vision Audit</h1>
-        <p className="text-xs text-white/40 font-mono-tactical uppercase">Hibrid AI & SKU-Scan Control</p>
+        <p className="text-xs text-white font-mono-tactical uppercase">Hibrid AI & SKU-Scan Control</p>
       </div>
 
       {!auditMode ? (
@@ -350,9 +371,9 @@ export const AIVisionAuditView = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Recebimento</h3>
-                <p className="text-[9px] text-white/40 font-mono-tactical uppercase mt-0.5">Nota Fiscal vs Chão</p>
+                <p className="text-[9px] text-white font-mono-tactical uppercase mt-0.5">Nota Fiscal vs Chão</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-white/20 group-hover:text-primary transition-all" />
+              <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
             </motion.button>
 
             <motion.button
@@ -365,15 +386,15 @@ export const AIVisionAuditView = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Estoque</h3>
-                <p className="text-[9px] text-white/40 font-mono-tactical uppercase mt-0.5">Contagem Geral</p>
+                <p className="text-[9px] text-white font-mono-tactical uppercase mt-0.5">Contagem Geral</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-white/20 group-hover:text-primary transition-all" />
+              <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
             </motion.button>
           </motion.div>
 
           <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10 flex items-start gap-4">
             <Info className="h-5 w-5 text-primary shrink-0 mt-1" />
-            <p className="text-[10px] text-primary/70 uppercase leading-relaxed font-mono-tactical">
+            <p className="text-[10px] text-primary uppercase leading-relaxed font-mono-tactical">
               Selecione o modo de operação. O sistema utilizará a Memória Neural para identificar SKUs conhecidos automaticamente.
             </p>
           </div>
@@ -387,7 +408,7 @@ export const AIVisionAuditView = () => {
           {/* Voltar */}
           <button 
             onClick={() => { setAuditMode(null); setInvoiceImage(null); setSkipInvoice(false); }}
-            className="flex items-center gap-2 text-white/40 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
+            className="flex items-center gap-2 text-white hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
           >
             <RotateCcw className="h-4 w-4" /> Alterar Modo
           </button>
@@ -398,7 +419,7 @@ export const AIVisionAuditView = () => {
             <div className="space-y-4">
               <div className="bg-primary/5 rounded-3xl p-6 border border-primary/20 mb-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 text-glow-cyan">Início de Recebimento</h4>
-                <p className="text-xs text-white/60 leading-relaxed uppercase font-mono-tactical">Escolha o método de entrada dos dados esperados.</p>
+                <p className="text-xs text-white leading-relaxed uppercase font-mono-tactical">Escolha o método de entrada dos dados esperados.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
@@ -412,9 +433,9 @@ export const AIVisionAuditView = () => {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Análise em Lote</h3>
-                    <p className="text-[8px] text-white/40 font-mono-tactical uppercase mt-0.5">Fotos de NF</p>
+                    <p className="text-[8px] text-white font-mono-tactical uppercase mt-0.5">Fotos de NF</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-white/20 group-hover:text-primary transition-all" />
+                  <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
                   <input type="file" className="hidden" ref={fileInputRef} onChange={handlePhotosUpload} accept="image/*" multiple />
                 </motion.button>
 
@@ -428,9 +449,9 @@ export const AIVisionAuditView = () => {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Sem Nota Fiscal</h3>
-                    <p className="text-[8px] text-white/40 font-mono-tactical uppercase mt-0.5">Identificação Livre</p>
+                    <p className="text-[8px] text-white font-mono-tactical uppercase mt-0.5">Identificação Livre</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-white/20 group-hover:text-primary transition-all" />
+                  <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
                 </motion.button>
               </div>
             </div>
@@ -443,7 +464,7 @@ export const AIVisionAuditView = () => {
                 <button
                   onClick={() => setInputMode('scan')}
                   className={`flex-1 py-4 rounded-[2rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                    inputMode === 'scan' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white/20 hover:text-white/40'
+                    inputMode === 'scan' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
                   }`}
                 >
                   <Boxes className="h-4 w-4" /> BIPE
@@ -451,7 +472,7 @@ export const AIVisionAuditView = () => {
                 <button
                   onClick={() => setInputMode('photo')}
                   className={`flex-1 py-3 rounded-[1.5rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                    inputMode === 'photo' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white/20 hover:text-white/40'
+                    inputMode === 'photo' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
                   }`}
                 >
                   <Camera className="h-4 w-4" /> FOTO (IA)
@@ -473,7 +494,7 @@ export const AIVisionAuditView = () => {
                     <h3 className="text-lg font-black text-white uppercase tracking-tight">
                       {inputMode === 'scan' ? "Scanner" : "Visão"}
                     </h3>
-                    <p className="text-[9px] text-white/40 font-mono-tactical uppercase max-w-[150px] mx-auto">
+                    <p className="text-[9px] text-white font-mono-tactical uppercase max-w-[150px] mx-auto">
                       {isManualMode 
                         ? "Modo Offline Ativo"
                         : (inputMode === 'scan' 
@@ -497,7 +518,7 @@ export const AIVisionAuditView = () => {
 
                   {/* Mini Tactical Switch - Centralizado */}
                   <div className="flex flex-col items-center gap-2">
-                    <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Protocolo de Rede</span>
+                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Protocolo de Rede</span>
                     <div 
                       onClick={() => setIsManualMode(!isManualMode)}
                       className={`relative h-7 w-28 rounded-full cursor-pointer transition-all duration-500 p-0.5 border ${
@@ -507,8 +528,8 @@ export const AIVisionAuditView = () => {
                       }`}
                     >
                       <div className="absolute inset-0 flex items-center justify-between px-3">
-                        <span className={`text-[7px] font-black uppercase transition-all ${isManualMode ? 'text-danger' : 'text-white/10'}`}>OFF</span>
-                        <span className={`text-[7px] font-black uppercase transition-all ${!isManualMode ? 'text-success' : 'text-white/10'}`}>ON</span>
+                        <span className={`text-[7px] font-black uppercase transition-all ${isManualMode ? 'text-danger' : 'text-white'}`}>OFF</span>
+                        <span className={`text-[7px] font-black uppercase transition-all ${!isManualMode ? 'text-success' : 'text-white'}`}>ON</span>
                       </div>
                       
                       <motion.div 
@@ -548,7 +569,15 @@ export const AIVisionAuditView = () => {
                 <div className="text-primary font-black uppercase tracking-[0.4em] text-xs animate-pulse">
                   {processingProgress > 0 ? `Processando Lote: ${processingProgress}%` : 'Analisando Evidências'}
                 </div>
-                <div className="text-white/40 font-mono-tactical text-[10px] uppercase mt-2">O Cérebro está analisando as etiquetas...</div>
+                {lastModel && (
+                  <div className="mt-2 flex items-center justify-center gap-1.5">
+                    <div className="h-1 w-1 rounded-full bg-primary" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-primary">
+                      Engine: {lastModel}
+                    </span>
+                  </div>
+                )}
+                <div className="text-white font-mono-tactical text-[10px] uppercase mt-2">O Cérebro está analisando as etiquetas...</div>
               </div>
               
               <button 
