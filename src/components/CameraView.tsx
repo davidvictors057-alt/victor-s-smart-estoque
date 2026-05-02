@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X, ScanLine, Zap, RefreshCw, AlertCircle, CheckCircle2, Image as ImageIcon, Hash } from "lucide-react";
 import { ManualInputModal } from "./ManualInputModal";
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import { compressImage } from "@/utils/imageProcessor";
 
 interface CameraViewProps {
   open: boolean;
@@ -139,15 +140,19 @@ export const CameraView = ({
     };
   }, [open, facing]);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     const video = videoRef.current;
     if (!video || !ready) return;
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0);
-    const url = canvas.toDataURL("image/jpeg", 0.85);
-    onCapture?.(url);
+    const rawUrl = canvas.toDataURL("image/jpeg", 0.95);
+    
+    // Optimize for AI throughput (~150KB target)
+    const optimizedUrl = await compressImage(rawUrl, 1280, 0.75);
+    
+    onCapture?.(optimizedUrl);
     if (!multiCapture) {
       onClose();
     }
@@ -169,9 +174,11 @@ export const CameraView = ({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
-      onCapture?.(dataUrl);
+      // Optimize gallery uploads too
+      const optimizedUrl = await compressImage(dataUrl, 1280, 0.75);
+      onCapture?.(optimizedUrl);
       onClose();
     };
     reader.readAsDataURL(file);

@@ -43,7 +43,7 @@ export const imageService = {
     try {
       // 1. Severe Compression
       const compressed = await this.compressImage(file);
-      
+
       // 2. Generate Tactical Name
       const fileExt = compressed.name.split('.').pop() || 'webp';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;

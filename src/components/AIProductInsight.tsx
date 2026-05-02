@@ -101,16 +101,23 @@ export const AIProductInsight: React.FC<AIProductInsightProps> = ({ product, isO
                   <div className="prose prose-invert max-w-none ai-insight-content">
                     <ReactMarkdown
                       components={{
-                        hr: () => <hr className="my-4 border-white/5" />,
-                        p: ({children}) => <p className="text-white leading-relaxed text-sm mb-4">{children}</p>,
-                        strong: ({children}) => <strong className="text-blue-400 font-bold">{children}</strong>,
-                        h1: ({children}) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
-                        ul: ({children}) => <ul className="space-y-2 mb-4">{children}</ul>,
-                        li: ({children}) => <li className="text-sm text-white flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 mt-1.5 flex-shrink-0" />
-                          {children}
-                        </li>
-                      }}
+                        hr: () => <hr className="my-6 border-white/10" />,
+                        p: ({children}) => <p className="text-white/90 leading-relaxed text-[13px] mb-4 text-justify">{children}</p>,
+                        strong: ({children}) => <strong className="font-black text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">{children}</strong>,
+                        h1: ({children}) => <h1 className="text-lg font-black text-white mb-3 uppercase tracking-tighter text-glow-ai border-b border-white/5 pb-2">{children}</h1>,
+                        h2: ({children}) => <h2 className="text-md font-black text-white mb-2 uppercase tracking-tighter">{children}</h2>,
+                        ul: ({children}) => <ul className="space-y-3 mb-6">{children}</ul>,
+                        li: ({children}) => (
+                          <li className="text-[13px] text-white/90 flex items-start gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-ai shadow-glow-ai mt-1.5 flex-shrink-0" />
+                            {children}
+                          </li>
+                        ),
+                        // Semantic Tags (Price/Warn/Desc)
+                        price: ({ children }: any) => <span className="font-mono-tactical font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">{children}</span>,
+                        warn: ({ children }: any) => <span className="font-black text-amber-400 animate-pulse drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]">{children}</span>,
+                        desc: ({ children }: any) => <span className="text-[10px] font-bold text-ai/80 bg-ai/5 px-1.5 py-0.5 rounded border border-ai/20 mx-1 uppercase tracking-tighter">{children}</span>,
+                      } as any}
                     >
                       {insight}
                     </ReactMarkdown>

@@ -488,55 +488,47 @@
       linear-gradient(to bottom, hsl(var(--primary) / 0.05) 1px, transparent 1px);
     background-size: 24px 24px;
   }
+  .safe-pt {
+    padding-top: env(safe-area-inset-top, 2rem);
+  }
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom, 2rem);
+  }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
 
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(0, 163, 255, 0.2);
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary) / 0.5);
-  }
-
-  /* Tactical Prose Utilities */
-  .prose-ai-insight p {
-    margin-bottom: 0.75rem;
-  }
-  .prose-ai-insight p:last-child {
-    margin-bottom: 0;
-  }
-  .prose-ai-insight strong {
-    color: hsl(var(--ai));
-    font-weight: 800;
-    text-shadow: 0 0 10px hsl(var(--ai) / 0.3);
-  }
-  .prose-ai-insight ul {
-    list-style-type: none;
-    padding-left: 0;
-  }
-  .prose-ai-insight li {
-    margin-bottom: 0.4rem;
-    position: relative;
-    padding-left: 1.25rem;
-  }
-  .prose-ai-insight li::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: hsl(var(--ai));
-  }
+/* Tactical Prose Utilities */
+.prose-ai-insight p {
+  margin-bottom: 0.75rem;
+}
+.prose-ai-insight p:last-child {
+  margin-bottom: 0;
+}
+.prose-ai-insight strong {
+  color: hsl(var(--ai));
+  font-weight: 800;
+  text-shadow: 0 0 10px hsl(var(--ai) / 0.3);
+}
+.prose-ai-insight ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+.prose-ai-insight li {
+  margin-bottom: 0.4rem;
+  position: relative;
+  padding-left: 1.25rem;
+}
+.prose-ai-insight li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: hsl(var(--ai));
 }
 
 /* Tactical AI Tags */

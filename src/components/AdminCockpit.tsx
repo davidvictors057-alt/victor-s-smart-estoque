@@ -13,6 +13,10 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Sector,
 } from "recharts";
 import {
   TrendingUp,
@@ -32,13 +36,41 @@ import {
   ShoppingCart,
   Users,
   Eye,
+  Brain,
 } from "lucide-react";
 import { CameraView } from "./CameraView";
 import { AIProductInsight } from './AIProductInsight';
 import { PredictiveShoppingList } from './PredictiveShoppingList';
 import { Button } from "./ui/button";
-
 import { useStore } from "@/store/useStore";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import { aiService } from "@/services/aiService";
+import { toast } from "sonner";
+
+// Custom components for Markdown to handle semantic colors (Synced with AIView)
+const MarkdownComponents = {
+  h1: ({ children }: any) => <h1 className="text-xl font-black text-white mt-6 mb-3 border-b border-ai/30 pb-2 uppercase tracking-tighter text-glow-ai">{children}</h1>,
+  h2: ({ children }: any) => <h2 className="text-lg font-black text-white mt-5 mb-2 uppercase tracking-tighter text-glow-ai">{children}</h2>,
+  h3: ({ children }: any) => <h3 className="text-md font-black text-ai mt-4 mb-1 uppercase tracking-tighter">{children}</h3>,
+  p: ({ children }: any) => <p className="mb-4 last:mb-0 leading-relaxed text-justify">{children}</p>,
+  ul: ({ children }: any) => <ul className="list-none space-y-2 mb-4">{children}</ul>,
+  li: ({ children }: any) => (
+    <li className="flex items-start gap-2">
+      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-ai shrink-0 shadow-[0_0_5px_rgba(0,163,255,0.8)]" />
+      <span>{children}</span>
+    </li>
+  ),
+  strong: ({ children }: any) => <strong className="font-black text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">{children}</strong>,
+  desc: ({ children }: any) => <span className="text-[10px] font-bold text-ai/80 bg-ai/5 px-1.5 py-0.5 rounded border border-ai/20 mx-1 uppercase tracking-tighter">{children}</span>,
+  price: ({ children }: any) => <span className="font-mono-tactical font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">{children}</span>,
+  warn: ({ children }: any) => <span className="font-black text-amber-400 animate-pulse drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]">{children}</span>,
+  name: ({ children }: any) => <span className="font-black text-white border-b border-white/30 pb-0.5">{children}</span>,
+  hr: () => <hr className="my-4 border-white/10" />,
+};
+
+
 
 const cascade = (i: number) => ({
   initial: { opacity: 0, y: 18 },
@@ -66,6 +98,30 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const [shoppingListOpen, setShoppingListOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tooltipMetric, setTooltipMetric] = useState<string | null>(null);
+  const [marketInsight, setMarketInsight] = useState<string | null>(null);
+  const [isMarketAiLoading, setIsMarketAiLoading] = useState(false);
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
+  const vibrantColors = ['#22c55e', '#ff4444', '#facc15', '#f97316', '#00ffff', '#00a3ff', '#ec4899'];
+
+  const runMarketAnalysis = async () => {
+    setIsMarketAiLoading(true);
+    try {
+      const distribution = Object.entries(brandCounts)
+        .map(([brand, count]) => `${brand}: ${count} unidades`)
+        .join(', ');
+      
+      const prompt = `Analise a distribuição de mercado do meu estoque: ${distribution}. 
+      Quais marcas dominam? Existe risco de concentração? Qual a recomendação estratégica para diversificação? 
+      Responda em tom tático, use emojis e tags <warn> ou <price> se necessário.`;
+      
+      const response = await aiService.chat(prompt);
+      setMarketInsight(response.text);
+    } catch (err) {
+      toast.error("Erro na análise neural do mercado.");
+    } finally {
+      setIsMarketAiLoading(false);
+    }
+  };
 
   const chartData = getChartData();
 
@@ -109,14 +165,44 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const formattedPatrimony = totalPatrimony.toLocaleString("pt-BR");
   const [, cents] = totalPatrimony.toFixed(2).split(".");
 
-  // Daily movements (TODAY & YESTERDAY)
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Daily movements (TODAY & YESTERDAY) using local time normalization
+  const formatLocalISO = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const todayStr = formatLocalISO(new Date());
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = formatLocalISO(yesterday);
 
-  const todayProcessed = movements.filter(m => m.timestamp?.startsWith(todayStr) && m.type === 'in');
-  const yesterdayProcessed = movements.filter(m => m.timestamp?.startsWith(yesterdayStr) && m.type === 'in');
+  const todayProcessed = movements.filter(m => {
+    if (!m.timestamp) return false;
+    
+    // Normalização agressiva para navegadores mobile
+    let isoString = m.timestamp.replace(' ', 'T');
+    if (isoString.includes('.')) {
+       isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
+    }
+    
+    const mDate = new Date(isoString);
+    return !isNaN(mDate.getTime()) && formatLocalISO(mDate) === todayStr && m.type === 'in';
+  });
+
+  const yesterdayProcessed = movements.filter(m => {
+    if (!m.timestamp) return false;
+    
+    // Normalização agressiva para navegadores mobile
+    let isoString = m.timestamp.replace(' ', 'T');
+    if (isoString.includes('.')) {
+       isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
+    }
+    
+    const mDate = new Date(isoString);
+    return !isNaN(mDate.getTime()) && formatLocalISO(mDate) === yesterdayStr && m.type === 'in';
+  });
 
   const growth = yesterdayProcessed.length > 0 
     ? ((todayProcessed.length - yesterdayProcessed.length) / yesterdayProcessed.length) * 100 
@@ -398,23 +484,43 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
            <motion.div 
              initial={{ opacity: 0, y: 10 }}
              animate={{ opacity: 1, y: 0 }}
-             className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4"
+             className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6"
            >
-              {lastAiAnalysis.split('\n').filter(l => l.trim() && (l.includes('-') || l.length > 5)).map((insight, idx) => (
-                <div key={idx} className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-2xl p-5 group hover:border-ai/30 transition-all backdrop-blur-sm shadow-xl">
-                   <div className="h-8 w-8 rounded-lg bg-ai/10 flex items-center justify-center text-ai shrink-0 group-hover:scale-110 transition-transform">
-                      <Zap className="h-4 w-4" />
-                   </div>
-                   <p className="text-[13px] text-white font-medium leading-relaxed italic">
-                      "{insight.replace(/^-\s*/, '').replace(/^[0-9]\.\s*/, '')}"
-                   </p>
-                </div>
-              ))}
+              {String(lastAiAnalysis).split(/(?=### )/g).filter(s => s.trim().length > 0).map((content, idx) => {
+                const lines = content.trim().split('\n');
+                const rawTitle = lines[0] || '';
+                const title = rawTitle.replace(/^###\s+/, '').replace(/\*\*/g, '');
+                const body = lines.slice(1).join('\n').trim() || content.trim();
+                const finalBody = body.startsWith('###') ? body.replace(/^###\s+.*?\n/, '') : body;
+
+                return (
+                  <div key={idx} className="bg-white/[0.03] border border-white/10 rounded-[1.5rem] p-6 group hover:border-ai/30 transition-all backdrop-blur-sm shadow-2xl relative overflow-hidden">
+                     <div className="absolute top-0 right-0 p-3 opacity-10">
+                        <div className="font-mono-tactical text-[8px] font-black text-ai uppercase tracking-widest">SEC {idx + 1}</div>
+                     </div>
+                     <div className="flex items-center gap-3 mb-4">
+                        <div className="h-8 w-8 rounded-lg bg-ai/10 flex items-center justify-center text-ai shrink-0 group-hover:scale-110 transition-transform shadow-glow-ai/20">
+                           <Zap className="h-4 w-4" />
+                        </div>
+                        <h4 className="text-sm font-black text-white uppercase tracking-tighter text-glow-ai">{title || "Insight Tático"}</h4>
+                     </div>
+                     <div className="text-[12px] text-white/90 font-medium leading-relaxed prose-ai-insight">
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw]}
+                          components={MarkdownComponents as any}
+                        >
+                          {finalBody}
+                        </ReactMarkdown>
+                     </div>
+                  </div>
+                );
+              })}
               
               <button 
                 onClick={runPredictiveAnalysis}
                 disabled={isAiLoading}
-                className="col-span-full mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white hover:text-ai transition-all flex items-center justify-center gap-3 py-3 border-t border-white/5"
+                className="col-span-full mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white hover:text-ai transition-all flex items-center justify-center gap-3 py-4 border-t border-white/5"
               >
                 {isAiLoading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
                 {isAiLoading ? 'RECALCULANDO PADRÕES...' : 'RECALCULAR INSIGHTS ESTRATÉGICOS'}
@@ -588,55 +694,149 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </motion.section>
 
-      {/* Radar - Improved Visibility & Floating Effect */}
+      {/* 🥧 Market Share - Premium Donut Chart */}
       <motion.section 
         {...cascade(5)} 
-        whileHover={{ y: -5, scale: 1.01 }}
-        className="bg-black-piano neon-blue-border rounded-[2.5rem] p-5 sm:p-8 shadow-[0_25px_50px_rgba(0,163,255,0.15)]"
+        whileHover={{ y: -5 }}
+        className="bg-black-piano neon-blue-border rounded-[2.5rem] p-5 sm:p-8 shadow-[0_25px_50px_rgba(0,163,255,0.15)] relative overflow-hidden"
       >
-        <div className="mb-8 flex items-center justify-between">
+        <div className="absolute inset-0 tactical-grid opacity-5" />
+        
+        <div className="mb-8 flex items-center justify-between relative z-10">
           <div>
             <div className="font-mono-tactical text-[12px] font-black uppercase tracking-[0.4em] text-primary">
               ANÁLISE DE MERCADO
             </div>
             <div className="text-xl font-black text-white tracking-tight">Market Share Interno</div>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5">
-             <Activity className="h-6 w-6 text-primary shadow-glow-cyan" />
-          </div>
+          <button 
+            onClick={runMarketAnalysis}
+            disabled={isMarketAiLoading}
+            className={`h-12 w-12 flex items-center justify-center rounded-2xl transition-all ${
+              isMarketAiLoading 
+                ? 'bg-primary/10 text-primary animate-spin' 
+                : 'bg-primary/20 text-primary hover:bg-primary hover:text-black shadow-glow-cyan active:scale-95'
+            }`}
+          >
+             <Sparkles className="h-6 w-6" />
+          </button>
         </div>
-        <div className="h-96 w-full flex items-center justify-center">
-          {radarData.length >= 3 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData} outerRadius="82%">
-                <PolarGrid stroke="rgba(255,255,255,0.1)" strokeDasharray="3 3" />
-                <PolarAngleAxis
-                  dataKey="brand"
-                  tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 900, fontFamily: "JetBrains Mono" }}
-                />
-                <PolarRadiusAxis
-                  angle={30}
-                  tick={false}
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <Radar
-                  dataKey="units"
-                  stroke="#00ffff"
-                  fill="#00ffff"
-                  fillOpacity={0.3}
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(0,255,255,0.2)', borderRadius: '12px' }}
-                  itemStyle={{ color: '#00ffff' }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center gap-3 text-white">
-              <Boxes className="h-12 w-12 opacity-20" />
-              <div className="font-mono-tactical text-[10px] uppercase tracking-widest">Aguardando mais dados de marcas...</div>
-            </div>
-          )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center relative z-10">
+          <div className="h-80 w-full">
+            {radarData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    activeIndex={activeSegmentIndex}
+                    activeShape={(props: any) => {
+                      const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+                      return (
+                        <g>
+                          <Sector
+                            cx={cx}
+                            cy={cy}
+                            innerRadius={innerRadius}
+                            outerRadius={outerRadius + 8}
+                            startAngle={startAngle}
+                            endAngle={endAngle}
+                            fill={fill}
+                          />
+                          <Sector
+                            cx={cx}
+                            cy={cy}
+                            startAngle={startAngle}
+                            endAngle={endAngle}
+                            innerRadius={outerRadius + 12}
+                            outerRadius={outerRadius + 15}
+                            fill={fill}
+                          />
+                        </g>
+                      );
+                    }}
+                    data={radarData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={95}
+                    paddingAngle={8}
+                    dataKey="units"
+                    onMouseEnter={(_, index) => setActiveSegmentIndex(index)}
+                  >
+                    {radarData.map((_, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={vibrantColors[index % vibrantColors.length]} 
+                        stroke="rgba(255,255,255,0.05)"
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(0,255,255,0.2)', borderRadius: '12px' }}
+                    itemStyle={{ color: '#00ffff', fontWeight: 'bold' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-white">
+                <Boxes className="h-12 w-12 opacity-20" />
+                <div className="font-mono-tactical text-[10px] uppercase tracking-widest text-white/30">Aguardando dados...</div>
+              </div>
+            )}
+            
+            {/* Center Text for Donut */}
+            {radarData.length > 0 && (
+              <div className="absolute top-[60%] left-[25%] -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none hidden lg:block">
+                 <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">{radarData[activeSegmentIndex]?.brand}</div>
+                 <div className="text-2xl font-black text-white">{radarData[activeSegmentIndex]?.units} UN</div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+             {marketInsight ? (
+               <motion.div 
+                 initial={{ opacity: 0, x: 20 }}
+                 animate={{ opacity: 1, x: 0 }}
+                 className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md"
+               >
+                 <div className="flex items-center gap-2 mb-3">
+                    <Brain className="h-4 w-4 text-primary" />
+                    <span className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest">Neural Insight</span>
+                 </div>
+                 <div className="text-[12px] text-white/90 leading-relaxed prose-ai-insight">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={MarkdownComponents as any}
+                    >
+                      {marketInsight}
+                    </ReactMarkdown>
+                 </div>
+                 <button 
+                   onClick={() => setMarketInsight(null)}
+                   className="mt-4 text-[9px] font-black text-white/40 hover:text-white uppercase tracking-widest"
+                 >
+                   LIMPAR ANÁLISE
+                 </button>
+               </motion.div>
+             ) : (
+               <div className="space-y-3">
+                 {radarData.map((entry, index) => (
+                   <div key={index} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <div className="flex items-center gap-3">
+                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: vibrantColors[index % vibrantColors.length] }} />
+                         <span className="text-xs font-bold text-white uppercase tracking-tighter">{entry.brand}</span>
+                      </div>
+                      <span className="font-mono-tactical text-[10px] font-black text-white/50">{entry.units} UN</span>
+                   </div>
+                 ))}
+                 {!isMarketAiLoading && (
+                   <p className="text-[10px] text-white/20 italic text-center pt-2">Clique no ícone de brilho para análise de IA</p>
+                 )}
+               </div>
+             )}
+          </div>
         </div>
       </motion.section>
 

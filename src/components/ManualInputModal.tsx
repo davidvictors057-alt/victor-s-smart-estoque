@@ -42,12 +42,12 @@ export const ManualInputModal = ({ open, onClose, onConfirm }: ManualInputModalP
               <div className="mt-2 text-xs text-white font-mono-tactical tracking-widest">DIGITE BARCODE / QR / INTERNO</div>
             </div>
             
-            <div className="group mb-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition-all focus-within:border-primary focus-within:bg-white/[0.07] focus-within:shadow-[0_0_30px_rgba(0,163,255,0.15)]">
+            <div className="group mb-8 rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-all focus-within:border-primary focus-within:bg-white/[0.07] focus-within:shadow-[0_0_30px_rgba(0,163,255,0.15)]">
               <input
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 placeholder="000000"
-                className="font-mono-tactical w-full bg-transparent text-center text-4xl font-black tracking-[0.3em] text-primary outline-none placeholder:text-white"
+                className="font-mono-tactical w-full bg-transparent text-center text-3xl font-black tracking-[0.1em] text-primary outline-none placeholder:text-white/20"
               />
             </div>
 

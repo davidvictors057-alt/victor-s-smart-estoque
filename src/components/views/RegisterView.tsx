@@ -26,7 +26,7 @@ export const RegisterView = () => {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
       audio.volume = 0.3;
       audio.play();
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleCapture = (img: string) => {
@@ -63,7 +63,7 @@ export const RegisterView = () => {
     };
     const newIdx = pendingQueue.length;
     setPendingQueue(prev => [...prev, newItem]);
-    setEditingItemIndex(newIdx); 
+    setEditingItemIndex(newIdx);
   };
 
   const [batchAbortController, setBatchAbortController] = useState<AbortController | null>(null);
@@ -82,7 +82,7 @@ export const RegisterView = () => {
         }
       }
     });
-    
+
     try {
       let resolvedCount = 0;
       let simulatedCount = 0;
@@ -91,7 +91,7 @@ export const RegisterView = () => {
         if (item.status !== 'pending' && item.name !== 'IDENTIFICANDO...') return item;
         try {
           const result = await aiService.analyzeProductBox(item.image_url, controller.signal);
-          
+
           if (result) {
             if (result.isSimulation) simulatedCount++;
             else resolvedCount++;
@@ -116,7 +116,7 @@ export const RegisterView = () => {
       }));
 
       setPendingQueue(updatedQueue);
-      
+
       if (simulatedCount > 0) {
         toast.success(`${resolvedCount} via IA + ${simulatedCount} via Simulação!`, { id: toastId });
       } else {
@@ -137,7 +137,7 @@ export const RegisterView = () => {
     if (pendingQueue.length === 0 || isUploading) return;
     setIsUploading(true);
     const toastId = toast.loading(`Processando imagens e registrando ${pendingQueue.length} itens...`);
-    
+
     try {
       // 1. Upload de Imagens (Apenas se forem Base64 novas)
       const queueWithStoredImages = await Promise.all(pendingQueue.map(async (item, idx) => {
@@ -149,9 +149,10 @@ export const RegisterView = () => {
         return item;
       }));
 
-      // 2. Filtrar itens para evitar lixo no banco
+      // 2. Filtrar e Normalizar itens para garantir visibilidade no Estoque
       const itemsToSave = queueWithStoredImages.map(item => ({
         ...item,
+        status: 'in_stock', // Força o status correto para aparecer no inventário
         name: item.name === 'IDENTIFICANDO...' ? `Produto (Sem Identificação)` : item.name
       }));
 
@@ -171,7 +172,7 @@ export const RegisterView = () => {
       {/* HUD de Controle Superior */}
       {/* Grid de Controle Tático - 2x2 */}
       <div className="grid grid-cols-2 gap-3 mb-8">
-        <button 
+        <button
           onClick={() => setScannerOpen('label_ai')}
           className="bg-black-piano border border-primary/20 p-5 rounded-[30px] flex flex-col items-center gap-2 shadow-glow-cyan-sm active:scale-95 transition-all group"
         >
@@ -181,7 +182,7 @@ export const RegisterView = () => {
           <span className="text-[10px] font-black text-white uppercase tracking-widest">IA Vision</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setScannerOpen('offline_scan')}
           className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
         >
@@ -191,7 +192,7 @@ export const RegisterView = () => {
           <span className="text-[10px] font-black text-white uppercase tracking-widest">Offline Vision</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setAuditOpen(true)}
           className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
         >
@@ -201,7 +202,7 @@ export const RegisterView = () => {
           <span className="text-[10px] font-black text-white uppercase tracking-widest">Auditoria</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setSearchOpen(true)}
           className="bg-black-piano border border-white/10 p-5 rounded-[30px] flex flex-col items-center gap-2 active:scale-95 transition-all group hover:border-white/30"
         >
@@ -221,7 +222,7 @@ export const RegisterView = () => {
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-[10px] font-black text-primary uppercase tracking-widest italic">Inventory Intake Hub</span>
               </div>
-              <button 
+              <button
                 onClick={resolveAllWithAi}
                 className="flex items-center gap-2 bg-primary/10 border border-primary/30 px-4 py-2 rounded-full text-primary hover:bg-primary hover:text-black transition-all active:scale-95"
               >
@@ -232,7 +233,7 @@ export const RegisterView = () => {
 
             <div className="grid grid-cols-2 gap-3">
               {pendingQueue.map((item, idx) => (
-                <ProductPreviewCard 
+                <ProductPreviewCard
                   key={item.id}
                   item={item}
                   onDelete={() => setPendingQueue(prev => prev.filter((_, i) => i !== idx))}
@@ -252,7 +253,7 @@ export const RegisterView = () => {
       {/* Tactical Intake Dock - Global Command Bar */}
       <AnimatePresence>
         {pendingQueue.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
@@ -275,7 +276,7 @@ export const RegisterView = () => {
 
               {/* Action Cluster */}
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => setPendingQueue([])}
                   className="h-11 w-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-danger hover:bg-danger/10 transition-all active:scale-90"
                   title="Limpar Fila"
@@ -298,18 +299,18 @@ export const RegisterView = () => {
       </AnimatePresence>
 
       {/* Camera Modal */}
-      <CameraView 
-        open={!!scannerOpen} 
-        onClose={() => setScannerOpen(null)} 
+      <CameraView
+        open={!!scannerOpen}
+        onClose={() => setScannerOpen(null)}
         title={
-          scannerOpen === 'label_ai' ? "Vision Capture" : 
-          scannerOpen === 'imei_vision' ? "Extração de Seriais" :
-          scannerOpen === 'offline_scan' ? "Offline Vision (Catalog)" :
-          scannerOpen === 'audit_scan' ? "Auditoria de SKU" :
-          scannerOpen === 'audit_photo' ? "Foto de Catálogo" :
-          scannerOpen === 'manual_photo' ? "Captura de Evidência" :
-          "Vision Scanner"
-        } 
+          scannerOpen === 'label_ai' ? "Vision Capture" :
+            scannerOpen === 'imei_vision' ? "Extração de Seriais" :
+              scannerOpen === 'offline_scan' ? "Offline Vision (Catalog)" :
+                scannerOpen === 'audit_scan' ? "Auditoria de SKU" :
+                  scannerOpen === 'audit_photo' ? "Foto de Catálogo" :
+                    scannerOpen === 'manual_photo' ? "Captura de Evidência" :
+                      "Vision Scanner"
+        }
         mode={(scannerOpen === 'sku_beep' || scannerOpen === 'offline_scan' || scannerOpen === 'audit_scan') ? 'scan' : 'photo'}
         multiCapture={scannerOpen === 'label_ai'}
         multiScan={scannerOpen === 'offline_scan'}
@@ -342,11 +343,11 @@ export const RegisterView = () => {
             playBeep();
             const { catalog, products } = useStore.getState();
             const cleanCode = code.trim();
-            
+
             // Busca tática: Catálogo > Histórico de Produtos
             const fromCatalog = catalog.find(c => c.sku.trim() === cleanCode || (c.internal_code && c.internal_code.trim() === cleanCode));
             const fromHistory = products.find(p => p.sku?.trim() === cleanCode || (p.internal_code && p.internal_code.trim() === cleanCode));
-            
+
             const newItem = {
               id: Math.random().toString(36).substr(2, 9),
               image_url: fromCatalog?.image_url || fromHistory?.image_url || '',
@@ -359,9 +360,9 @@ export const RegisterView = () => {
               imei2: '',
               quantity: 1
             };
-            
+
             setPendingQueue(prev => [...prev, newItem]);
-            toast.success(`Adicionado via Catálogo: ${newItem.name}`, { 
+            toast.success(`Adicionado via Catálogo: ${newItem.name}`, {
               position: 'top-center',
               icon: '📦'
             });
@@ -379,7 +380,7 @@ export const RegisterView = () => {
       {/* HUD de Edição Detalhada (Tela Cheia) */}
       <AnimatePresence>
         {editingItemIndex !== null && (
-          <ManualEntryModal 
+          <ManualEntryModal
             item={pendingQueue[editingItemIndex]}
             onClose={() => setEditingItemIndex(null)}
             onSave={(updates: any) => {
@@ -399,12 +400,12 @@ export const RegisterView = () => {
           />
         )}
       </AnimatePresence>
-      <CatalogAuditHUD 
-        open={auditOpen} 
+      <CatalogAuditHUD
+        open={auditOpen}
         onClose={() => {
           setAuditOpen(false);
           setAuditPhotoUrl(null); // Limpar ao fechar
-        }} 
+        }}
         initialSku={auditSku}
         onScanRequest={() => setScannerOpen('audit_scan')}
         onPhotoRequest={() => setScannerOpen('audit_photo')}
@@ -424,13 +425,13 @@ export const RegisterView = () => {
 
 const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
   return (
-    <motion.div 
+    <motion.div
       layout
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="bg-black-piano border border-white/10 rounded-[25px] flex flex-col items-stretch overflow-hidden relative group"
     >
-      <button 
+      <button
         onClick={onDelete}
         className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md text-red-500 border border-white/10 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-lg"
       >
@@ -446,7 +447,7 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
             <span className="text-[8px] font-black uppercase">MANUAL ENTRY</span>
           </div>
         )}
-        
+
         {item.quantity > 1 && (
           <div className="absolute top-2 left-2 z-10 bg-primary text-black font-black text-[10px] px-2 py-0.5 rounded-full shadow-glow-cyan animate-pulse">
             {item.quantity}X
@@ -459,7 +460,7 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
             Simulado
           </div>
         )}
-        
+
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
           <p className={`text-[9px] font-black text-white uppercase truncate tracking-tight italic ${item.status === 'error' ? 'text-red-500' : ''}`}>
             {item.name || "PENDENTE"}
@@ -467,7 +468,7 @@ const ProductPreviewCard = ({ item, onDelete, onEdit }: any) => {
         </div>
       </div>
 
-      <button 
+      <button
         onClick={onEdit}
         className="w-full py-4 bg-primary/10 border-t border-white/5 flex items-center justify-center gap-2 hover:bg-primary hover:text-black transition-all group/btn"
       >
@@ -497,7 +498,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
     if (data.sku && data.sku.length > 3) {
       const existing = products.find(p => p.sku === data.sku || p.imei === data.sku);
       const inCatalog = catalog.find(c => c.sku === data.sku);
-      
+
       if (existing || inCatalog) {
         const foundName = existing?.name || inCatalog?.name;
         if (foundName && !data.name) {
@@ -522,13 +523,13 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
     const isNewNameReal = item.name && item.name !== 'Identificando...' && item.name !== lastItemNameRef.current;
 
     if (skuChangedExternally || isNewNameReal || photoChangedExternally) {
-      setData(prev => ({ 
-        ...prev, 
+      setData(prev => ({
+        ...prev,
         sku: skuChangedExternally ? item.sku : prev.sku,
         name: isNewNameReal ? item.name : prev.name,
         image_url: photoChangedExternally ? item.image_url : prev.image_url
       }));
-      
+
       // Atualiza as refs para o próximo ciclo
       lastSkuRef.current = item.sku;
       lastItemNameRef.current = item.name;
@@ -560,7 +561,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
       setAbortController(controller);
       setLoading(true);
       const toastId = toast.loading("IA Vision: Extraindo seriais...");
-      
+
       // Timeout de segurança de 30s
       const timeoutId = setTimeout(() => {
         if (loading) {
@@ -637,27 +638,38 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex flex-col"
+    <motion.div
+      initial={{ opacity: 0, y: "100%" }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: "100%" }}
+      className="fixed inset-0 z-[100] bg-black-piano backdrop-blur-2xl flex flex-col overflow-hidden"
     >
-      <div className="flex-1 overflow-y-auto pt-8 pb-32 px-4">
-        <div className="max-w-md mx-auto flex flex-col gap-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-primary font-black uppercase tracking-[0.3em]">Tactical Intake</p>
-              <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Detalhes do Item</h2>
+      {/* Tactical Header Fixo */}
+      <div className="bg-black/40 border-b border-white/5 backdrop-blur-md safe-pt">
+        <div className="max-w-md mx-auto px-6 py-6 flex items-center justify-between">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <p className="text-[10px] text-primary font-black uppercase tracking-[0.3em]">Neural Intake v2.0</p>
             </div>
-            <button onClick={onClose} className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:text-white transition-all">
-              <X className="w-6 h-6" />
-            </button>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Detalhes</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all active:scale-90"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
 
-          <div 
+      {/* Área de Conteúdo com Rolagem Garantida */}
+      <div className="flex-1 overflow-y-auto px-4 py-8 custom-scrollbar">
+        <div className="max-w-md mx-auto space-y-10 pb-40">
+          {/* Evidência Visual */}
+          <div
             onClick={onScanPhoto}
-            className="w-full aspect-video rounded-[35px] bg-white/5 border border-white/10 overflow-hidden relative group cursor-pointer hover:border-primary/50 transition-all"
+            className="w-full aspect-video rounded-[40px] bg-white/5 border border-white/10 overflow-hidden relative group cursor-pointer hover:border-primary/50 transition-all shadow-2xl"
           >
             {data.image_url ? (
               <img src={data.image_url} alt="" className="w-full h-full object-cover" />
@@ -667,22 +679,21 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                 <p className="text-xs font-black uppercase tracking-widest">Sem Evidência Visual</p>
               </div>
             )}
-            
+
             {data.image_url && (
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   loading ? stopAi() : quickAiName();
                 }}
-                className={`absolute bottom-6 right-6 px-6 py-3 rounded-2xl font-black uppercase text-[10px] shadow-glow-cyan flex items-center gap-2 active:scale-95 transition-all ${
-                  loading ? 'bg-red-500 text-white shadow-red-500/50' : 'bg-primary text-black'
-                }`}
+                className={`absolute bottom-6 right-6 px-6 py-3 rounded-2xl font-black uppercase text-[10px] shadow-glow-cyan flex items-center gap-2 active:scale-95 transition-all ${loading ? 'bg-red-500 text-white shadow-red-500/50' : 'bg-primary text-black'
+                  }`}
               >
                 {loading ? <X className="w-4 h-4" /> : <Zap className="w-4 h-4 fill-current" />}
                 {loading ? "PARAR IA" : "Preencher via IA"}
               </button>
             )}
-            
+
             <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
               <p className="text-[8px] font-black text-white uppercase">Clique para trocar foto</p>
             </div>
@@ -692,9 +703,9 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
             <div className="space-y-2">
               <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Nomenclatura Operacional</label>
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4 group focus-within:border-primary/50 transition-all">
-                <input 
+                <input
                   value={data.name}
-                  onChange={e => setData({...data, name: e.target.value.toUpperCase()})}
+                  onChange={e => setData({ ...data, name: e.target.value.toUpperCase() })}
                   placeholder="EX: IPHONE 15 PRO MAX 256GB"
                   className="flex-1 bg-transparent text-lg font-black text-white outline-none placeholder:text-white italic uppercase tracking-[0.05em]"
                 />
@@ -705,9 +716,9 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
               <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Especificação / Detalhes</label>
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4 group focus-within:border-primary/50 transition-all">
                 <Cpu className="w-5 h-5 text-primary" />
-                <input 
+                <input
                   value={data.spec || ''}
-                  onChange={e => setData({...data, spec: e.target.value.toUpperCase()})}
+                  onChange={e => setData({ ...data, spec: e.target.value.toUpperCase() })}
                   placeholder="EX: 128GB / 4GB / PRETO"
                   className="flex-1 bg-transparent text-sm font-black text-white outline-none placeholder:text-white/30 uppercase tracking-[0.1em]"
                 />
@@ -718,9 +729,9 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
               <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">SKU / Part Number</label>
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4 focus-within:border-primary/50 transition-all">
                 <Tag className="w-5 h-5 text-primary" />
-                <input 
+                <input
                   value={data.sku}
-                  onChange={e => setData({...data, sku: e.target.value.toUpperCase()})}
+                  onChange={e => setData({ ...data, sku: e.target.value.toUpperCase() })}
                   placeholder="CÓDIGO DE BARRAS"
                   className="flex-1 bg-transparent text-sm font-black text-white outline-none font-mono tracking-[0.2em]"
                 />
@@ -735,12 +746,12 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                 <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Valor Custo</label>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-3">
                   <DollarSign className="w-4 h-4 text-red-500" />
-                  <input 
+                  <input
                     type="number"
                     value={data.cost || ''}
                     onChange={e => {
                       const val = e.target.value;
-                      setData({...data, cost: val === '' ? 0 : Number(val)});
+                      setData({ ...data, cost: val === '' ? 0 : Number(val) });
                     }}
                     placeholder="0.00"
                     className="w-full bg-transparent text-lg font-black text-white outline-none"
@@ -751,12 +762,12 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                 <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Valor Venda</label>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-3">
                   <DollarSign className="w-4 h-4 text-emerald-500" />
-                  <input 
+                  <input
                     type="number"
                     value={data.sale || ''}
                     onChange={e => {
                       const val = e.target.value;
-                      setData({...data, sale: val === '' ? 0 : Number(val)});
+                      setData({ ...data, sale: val === '' ? 0 : Number(val) });
                     }}
                     placeholder="0.00"
                     className="w-full bg-transparent text-lg font-black text-white outline-none"
@@ -766,13 +777,11 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
             </div>
 
             {data.cost > 0 && data.sale > 0 && (
-              <div className={`p-6 rounded-[35px] border flex items-center justify-between shadow-2xl ${
-                margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/10' : 'bg-amber-500/10 border-amber-500/20 shadow-amber-500/10'
-              }`}>
+              <div className={`p-6 rounded-[35px] border flex items-center justify-between shadow-2xl ${margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/10' : 'bg-amber-500/10 border-amber-500/20 shadow-amber-500/10'
+                }`}>
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                    margin >= 30 ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${margin >= 30 ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'
+                    }`}>
                     <Percent className="w-6 h-6" />
                   </div>
                   <div>
@@ -792,7 +801,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
             <div className="space-y-4">
               <div className="flex items-center justify-between px-4">
                 <label className="text-[10px] text-white font-black uppercase tracking-widest">Identificadores Seriais</label>
-                <button 
+                <button
                   onClick={onScanIMEIs}
                   className="flex items-center gap-2 text-primary hover:text-primary transition-colors active:scale-95"
                 >
@@ -800,22 +809,22 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
                   <span className="text-[9px] font-black uppercase tracking-widest">Raio-X IA</span>
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-1 gap-3">
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4">
                   <Fingerprint className="w-5 h-5 text-white" />
-                  <input 
+                  <input
                     value={data.imei}
-                    onChange={e => setData({...data, imei: e.target.value})}
+                    onChange={e => setData({ ...data, imei: e.target.value })}
                     placeholder="IMEI 1"
                     className="flex-1 bg-transparent text-sm font-black text-white outline-none font-mono tracking-[0.2em]"
                   />
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-4">
                   <Fingerprint className="w-5 h-5 text-white" />
-                  <input 
+                  <input
                     value={data.imei2}
-                    onChange={e => setData({...data, imei2: e.target.value})}
+                    onChange={e => setData({ ...data, imei2: e.target.value })}
                     placeholder="IMEI 2"
                     className="flex-1 bg-transparent text-sm font-black text-white outline-none font-mono tracking-[0.2em]"
                   />
@@ -827,19 +836,19 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
             <div className="space-y-4 pt-4 border-t border-white/5">
               <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Volume do Lote</label>
               <div className="flex items-center justify-center gap-8 bg-white/5 border border-white/10 rounded-[35px] p-4">
-                <button 
+                <button
                   onClick={() => setData(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
                   className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-white hover:bg-white/10 hover:text-white transition-all active:scale-90"
                 >
                   <Minus className="w-6 h-6" />
                 </button>
-                
+
                 <div className="flex flex-col items-center">
                   <span className="text-4xl font-black text-primary drop-shadow-glow-cyan">{data.quantity}</span>
                   <span className="text-[8px] font-black uppercase tracking-widest text-white mt-1">UNIDADES</span>
                 </div>
 
-                <button 
+                <button
                   onClick={() => setData(prev => ({ ...prev, quantity: prev.quantity + 1 }))}
                   className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary hover:text-black transition-all active:scale-90 shadow-glow-cyan-sm"
                 >
@@ -855,7 +864,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
       </div>
 
       <div className="p-4 bg-black/90 border-t border-white/10 z-[110]">
-        <button 
+        <button
           onClick={() => onSave(data)}
           className="w-full max-w-md mx-auto bg-primary py-4 rounded-[20px] text-black font-black uppercase tracking-[0.2em] shadow-glow-cyan active:scale-95 transition-all flex items-center justify-center gap-2"
         >

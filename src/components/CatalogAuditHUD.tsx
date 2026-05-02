@@ -163,14 +163,15 @@ export const CatalogAuditHUD = ({ open, onClose, onScanRequest, onPhotoRequest, 
             className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
+            initial={{ opacity: 0, y: "100%" }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            className="fixed inset-x-0 bottom-0 z-[110] mx-auto max-w-lg rounded-t-[3rem] bg-black-piano border-t-2 border-primary/20 p-8 shadow-[0_-20px_50px_rgba(0,243,255,0.1)]"
+            exit={{ opacity: 0, y: "100%" }}
+            className="fixed inset-x-0 bottom-0 z-[110] max-h-[95vh] flex flex-col bg-black-piano backdrop-blur-2xl rounded-t-[3rem] border-t border-white/10 shadow-glow-cyan overflow-hidden"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
+            {/* Header Fixo - Garantindo que nunca saia da tela */}
+            <div className="bg-black/40 border-b border-white/5 backdrop-blur-md safe-pt">
+              <div className="max-w-md mx-auto px-8 py-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
                   <Search className="text-primary w-5 h-5" />
                 </div>
@@ -198,30 +199,32 @@ export const CatalogAuditHUD = ({ open, onClose, onScanRequest, onPhotoRequest, 
                 <X className="h-6 w-6" />
               </button>
             </div>
+          </div>
 
-            {/* Input de Busca */}
-            <div className="relative mb-8 group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white group-focus-within:text-primary transition-colors">
-                <Package className="h-5 w-5" />
+            <div className="flex-1 overflow-y-auto px-8 pb-8">
+              {/* Input de Busca */}
+              <div className="relative mb-8 group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white group-focus-within:text-primary transition-colors">
+                  <Package className="h-5 w-5" />
+                </div>
+                <input 
+                  type="text" 
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  placeholder="Escaneie ou digite o SKU..."
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-10 pr-14 text-white font-black tracking-widest focus:border-primary focus:outline-none transition-all placeholder:text-white/20"
+                />
+                <button 
+                  onClick={onScanRequest}
+                  disabled={isRemapping}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary hover:text-black transition-all shadow-glow-cyan-sm active:scale-90 disabled:opacity-20"
+                >
+                  <ScanLine className="w-5 h-5" />
+                </button>
               </div>
-              <input 
-                type="text" 
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                placeholder="Escaneie ou digite o SKU..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-16 text-white font-black tracking-widest focus:border-primary focus:outline-none transition-all"
-              />
-              <button 
-                onClick={onScanRequest}
-                disabled={isRemapping}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary hover:bg-primary hover:text-black transition-all shadow-glow-cyan-sm active:scale-90 disabled:opacity-20"
-              >
-                <ScanLine className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Resultado */}
-            <div className="min-h-[300px]">
+              {/* Resultado */}
+              <div className="min-h-[300px]">
               {isRemapping && sourceItem && pendingNewSku ? (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 py-8">
                   <div className="bg-primary/5 border border-primary/20 rounded-3xl p-6 space-y-6">
@@ -475,6 +478,7 @@ export const CatalogAuditHUD = ({ open, onClose, onScanRequest, onPhotoRequest, 
                 </div>
               )}
             </div>
+          </div>
 
             {/* Tactical Footer */}
             <div className="mt-8 pt-6 border-t border-white/5 text-center">

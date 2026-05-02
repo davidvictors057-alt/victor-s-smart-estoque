@@ -222,8 +222,15 @@ export const useStore = create<AppState>()(
 
       fetchProducts: async () => {
         try {
+          const currentUser = get().currentUser;
+          const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
           const columns = 'id, sku, name, spec, imei, imei2, brand, category, cost, sale, status, image_url, internal_code, created_at, updated_at';
-          const { data, error } = await supabase.from('products').select(columns).order('created_at', { ascending: false }).limit(1000);
+          const { data, error } = await supabase
+            .from('products')
+            .select(columns)
+            .eq('client_id', clientId)
+            .order('created_at', { ascending: false })
+            .limit(1000);
           if (error) throw error;
           if (data) set({ products: data as Product[] });
         } catch (error) { console.error(error); }
@@ -401,33 +408,28 @@ export const useStore = create<AppState>()(
 
       fetchProfiles: async () => {
         try {
-          console.log("🌐 [Store] Buscando perfis...");
           const { data, error } = await supabase.from('profiles').select('*');
-          if (error) {
-            console.error("❌ [Store] Erro ao buscar perfis:", {
-              code: error.code,
-              message: error.message,
-              details: error.details
-            });
-            throw error;
-          }
+          if (error) throw error;
           if (data) {
-            console.log(`✅ [Store] ${data.length} perfis carregados.`);
             set({ profiles: data });
           }
         } catch (error) { 
-          console.error("🚨 [Store] Erro crítico ao buscar perfis:", error); 
+          console.error("🚨 [Store] Erro ao buscar perfis:", error); 
         }
       },
 
       fetchMovements: async () => {
         try {
+          const currentUser = get().currentUser;
+          const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
+          
           // Otimização: Limitamos os campos do produto para evitar carregar base64 pesada
           const { data, error } = await supabase
             .from('movements')
             .select('*, product:products(id, name, sku, image_url), operator:profiles(*)')
+            .eq('client_id', clientId)
             .order('timestamp', { ascending: false })
-            .limit(100);
+            .limit(1000);
           if (error) throw error;
           if (data) set({ movements: data as Movement[] });
         } catch (error) { console.error(error); }
@@ -498,16 +500,13 @@ export const useStore = create<AppState>()(
             updated_at: new Date().toISOString()
           }));
 
-          console.log(`📦 [Store] Inserindo ${quantity} produtos...`, productsToInsert[0]);
           const { data, error } = await supabase.from('products').insert(productsToInsert).select();
           
           if (error) {
-            console.error("❌ [Store] Erro ao inserir produtos:", error);
             throw error;
           }
 
           if (data) {
-            console.log(`✅ [Store] ${data.length} produtos inseridos. Criando movimentações...`);
             const movementPromises = data.map((p) => 
               get().addMovement({
                 product_id: p.id,
@@ -773,13 +772,14 @@ export const useStore = create<AppState>()(
             toast.success(`${insertedProducts.length} itens registrados com sucesso!`);
           }
           
-          await get().fetchAll();
         } catch (error: any) {
           console.error("Erro no bulkAddProducts:", error);
           toast.error(`Erro no lote: ${error.message}`);
-          throw error; // Re-throw para o RegisterView capturar
+          throw error; 
         } finally {
           set({ isLoading: false });
+          // Agora que isLoading é false, o fetchAll vai funcionar
+          await get().fetchAll();
         }
       },
 
@@ -917,8 +917,6 @@ export const useStore = create<AppState>()(
           const toAdd: any[] = [];
           const toDeleteIds: string[] = [];
 
-          console.log("🚀 Iniciando Reconciliação Tática em Lote...");
-
           for (const item of auditItems) {
             // Só reconcilia se o item foi auditado ou tem identificação
             if (!item.isAudited && item.identified === 0 && item.final === item.expected) continue;
@@ -946,33 +944,56 @@ export const useStore = create<AppState>()(
 
           // Executa as operações em lote
           if (toAdd.length > 0) {
-            console.log(`➕ Adicionando ${toAdd.length} SKUs em lote...`);
             await get().bulkAddProducts(toAdd);
           }
           
           if (toDeleteIds.length > 0) {
-            console.log(`➖ Removendo ${toDeleteIds.length} itens em lote...`);
             await get().deleteProductsBulk(toDeleteIds);
           }
           
           toast.success("ESTOQUE SINCRONIZADO");
-          await get().fetchAll();
         } catch (error: any) {
           console.error("Erro na reconciliação:", error);
           toast.error("FALHA NA RECONCILIÇÃO");
         } finally {
           set({ isLoading: false });
+          await get().fetchAll();
         }
       },
 
       getChartData: () => {
         const { movements } = get();
-        const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        
+        // Helper para formatar data local como YYYY-MM-DD sem fuso horário
+        const formatLocalISO = (date: Date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+
+        const now = new Date();
+
         return Array.from({ length: 15 }).map((_, i) => {
-          const d = new Date();
+          const d = new Date(now);
           d.setDate(d.getDate() - (14 - i));
-          const dateStr = d.toLocaleDateString();
-          const dayMovements = movements.filter(m => new Date(m.timestamp).toLocaleDateString() === dateStr);
+          const dateStr = formatLocalISO(d);
+          
+          const dayMovements = movements.filter(m => {
+            if (!m.timestamp) return false;
+            
+            // Normalização agressiva para navegadores mobile (Safari/Chrome Mobile)
+            // Converte "2026-05-02 15:35:00.524936+00" -> "2026-05-02T15:35:00Z"
+            let isoString = m.timestamp.replace(' ', 'T');
+            // Remove microssegundos se existirem para evitar bugs de parsing em alguns browsers
+            if (isoString.includes('.')) {
+               isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
+            }
+            
+            const mDate = new Date(isoString);
+            return !isNaN(mDate.getTime()) && formatLocalISO(mDate) === dateStr;
+          });
+
           return {
             name: `${d.getDate()}/${d.getMonth() + 1}`,
             in: dayMovements.filter(m => m.type === 'in').length,
@@ -999,8 +1020,6 @@ export const useStore = create<AppState>()(
         }
         
         set({ isAiLoading: true });
-        console.log("🧠 Iniciando análise preditiva...");
-        
         try {
           const inStock = products.filter(p => p.status === 'in_stock');
           const data = {
@@ -1030,7 +1049,7 @@ export const useStore = create<AppState>()(
             lastAiAnalysisModel: analysis.modelUsed || 'AI-CORE-3.1'
           });
           
-          console.log("✅ Análise concluída:", analysis.modelUsed);
+
         } catch (error: any) { 
           console.error("❌ Erro no runPredictiveAnalysis:", error); 
           toast.error("FALHA NA CONEXÃO NEURAL", { description: error.message || "Erro desconhecido" });
@@ -1072,14 +1091,14 @@ export const useStore = create<AppState>()(
       name: 'victors-smart-storage',
       partialize: (state) => ({
         currentUser: state.currentUser,
-        // Strip heavy image_url from catalog for persistence to stay under 5MB limit
+        // Strip heavy image_url from catalog and products for persistence to stay under 5MB limit
         catalog: state.catalog?.map(({ image_url, ...rest }) => rest) || [],
-        products: state.products || [],
+        products: state.products?.map(({ image_url, ...rest }) => rest) || [],
         profiles: state.profiles || [],
         movements: state.movements || [],
         appSettings: state.appSettings,
         onlineBrainMode: state.onlineBrainMode,
-        chatHistory: state.chatHistory?.slice(-20) || [], // Truncate chat history
+        chatHistory: state.chatHistory?.slice(-20) || [], 
         lastAiAnalysis: state.lastAiAnalysis,
         lastAiAnalysisModel: state.lastAiAnalysisModel,
       }),

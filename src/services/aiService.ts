@@ -11,11 +11,11 @@ class AIService {
   private client: any = null;
 
   constructor() {
-    console.log("🧠 AI Service 3.1 Initializing (New SDK)...");
+    // console.log("🧠 AI Service 3.1 Initializing (New SDK)...");
     if (API_KEY) {
       this.client = new GoogleGenAI({ apiKey: API_KEY });
     } else {
-      console.warn("❌ API Key NÃO detectada no import.meta.env.");
+      // console.warn("❌ API Key NÃO detectada no import.meta.env.");
       if (typeof window !== 'undefined') {
         setTimeout(() => {
           toast.error("Motor de IA Desativado: VITE_GEMINI_API_KEY não encontrada.", {
@@ -33,10 +33,32 @@ class AIService {
   private cleanAiResponse(text: string): string {
     if (!text) return "";
     return text
-      .replace(/```json/gi, '')
-      .replace(/```markdown/gi, '')
+      .replace(/```[a-z]*\n?/gi, '') // Remove code blocks with optional language
       .replace(/```/g, '')
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Remove non-printable chars
       .trim();
+  }
+
+  /**
+   * Tenta extrair e parsear JSON de uma string de forma robusta
+   */
+  private safeParseJson(text: string): any {
+    try {
+      const cleaned = this.cleanAiResponse(text);
+      // Busca pelo primeiro '{' e último '}'
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        const jsonPart = cleaned.substring(firstBrace, lastBrace + 1);
+        return JSON.parse(jsonPart);
+      }
+      
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.warn("⚠️ Falha ao parsear JSON da IA:", e);
+      return null;
+    }
   }
 
   /**
@@ -78,7 +100,7 @@ class AIService {
         
         return "";
       } catch (e) {
-        console.warn("⚠️ Falha na extração de texto do objeto de resposta:", e);
+        // console.warn("⚠️ Falha na extração de texto do objeto de resposta:", e);
         return "";
       }
     };
@@ -99,7 +121,7 @@ class AIService {
       throw new Error("Resposta vazia do motor primário.");
     } catch (error: any) {
       if (error.name === 'AbortError') throw error;
-      console.warn(`⚠️ Falha no Motor Primário (${PRIMARY_MODEL}):`, error.message || error);
+      // console.warn(`⚠️ Falha no Motor Primário (${PRIMARY_MODEL}):`, error.message || error);
       lastError = error;
       // Pequeno delay tático antes do fallback
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -117,11 +139,11 @@ class AIService {
       const text = extractText(result.response || result);
       if (!text) throw new Error("Resposta vazia do motor de fallback.");
       
-      console.log(`✅ Recuperação concluída via ${FALLBACK_MODEL}.`);
+      // console.log(`✅ Recuperação concluída via ${FALLBACK_MODEL}.`);
       return { text: String(text), modelUsed: FALLBACK_MODEL };
     } catch (error: any) {
       if (error.name === 'AbortError') throw error;
-      console.error("🚨 Falha Crítica: Ambos os motores AI falharam.", error.message || error);
+      // console.error("🚨 Falha Crítica: Ambos os motores AI falharam.", error.message || error);
       throw lastError || error;
     }
   }
@@ -137,25 +159,18 @@ class AIService {
         SYSTEM_PROMPTS.PREDICTIVE_ANALYSIS
       );
       
-      const cleanJson = this.cleanAiResponse(text);
-      
-      try {
-        const parsed = JSON.parse(cleanJson);
-        const insights = parsed.insights || [];
-        
-        if (Array.isArray(insights) && insights.length > 0) {
-          return { text: insights.join('\n'), modelUsed };
+      const parsed = this.safeParseJson(text);
+      if (parsed) {
+        const report = parsed.report || parsed.insights?.join('\n') || null;
+        if (report) {
+          return { text: report, modelUsed };
         }
-        
-        // Fallback se o JSON for válido mas não tiver o formato esperado
-        return { text: text.trim() || "Análise concluída, mas sem insights específicos.", modelUsed };
-      } catch {
-        // Fallback para texto puro se falhar o parse
-        const lines = text.split('\n').filter(l => l.trim().length > 10);
-        return { text: lines.length > 0 ? lines.join('\n') : text.trim(), modelUsed };
       }
+      
+      // Fallback para texto puro
+      return { text: text.trim() || "Análise concluída.", modelUsed };
     } catch (error: any) {
-      console.error("AI Predictive Error:", error);
+      // console.error("AI Predictive Error:", error);
       return { 
         text: `FALHA NO NÚCLEO COGNITIVO: ${error.message || "Erro de conexão"}.\n- Verifique o estoque físico.\n- Reinicie o link neural.`, 
         modelUsed: "ERROR" 
@@ -224,10 +239,9 @@ class AIService {
         SYSTEM_PROMPTS.STRATEGIC_CHAT
       );
 
-      const endTime = performance.now();
       return {
-        text: text,
-        time: parseFloat(((endTime - startTime) / 1000).toFixed(2)), 
+        text: this.cleanAiResponse(text),
+        time: parseFloat(((performance.now() - startTime) / 1000).toFixed(2)), 
         model: modelUsed
       };
     } catch (error: any) {
@@ -295,7 +309,14 @@ class AIService {
       ];
 
       const { text, modelUsed } = await this.safeGenerateContent(contents, systemPrompt, signal);
-      return { text: text, modelUsed }; // Don't clean here, audit might need raw JSON in prose
+      
+      // Tentativa de extração tática de JSON se o componente esperar estrutura
+      const parsed = this.safeParseJson(text);
+      return { 
+        text: text, 
+        identified: parsed?.identified || [],
+        modelUsed 
+      };
     } catch (error: any) {
       if (error.name === 'AbortError') throw error;
       console.error("MultiModal Audit Error:", error);
@@ -315,10 +336,8 @@ class AIService {
       ];
 
       const { text, modelUsed } = await this.safeGenerateContent(contents);
-      const cleanJson = this.cleanAiResponse(text);
-      const jsonMatch = cleanJson.match(/\{.*\}/s);
-      const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { items: [] };
-      return { ...data, modelUsed };
+      const parsed = this.safeParseJson(text);
+      return { items: parsed?.items || [], modelUsed };
     } catch (error) {
       console.error("Invoice OCR Error:", error);
       return { items: [], modelUsed: "ERROR" };
@@ -335,11 +354,8 @@ class AIService {
     
     try {
       const { text, modelUsed } = await this.safeGenerateContent(prompt, SYSTEM_PROMPTS.SKU_RESOLUTION, signal);
-      const cleanJson = this.cleanAiResponse(text);
-      const jsonMatch = cleanJson.match(/\{.*\}/s);
-      const finalJson = jsonMatch ? jsonMatch[0] : cleanJson;
-      const parsed = JSON.parse(finalJson);
-      return { identified: parsed.identified || [], modelUsed };
+      const parsed = this.safeParseJson(text);
+      return { identified: parsed?.identified || [], modelUsed };
     } catch (error: any) {
       if (error.name === 'AbortError') throw error;
       return { identified: [], modelUsed: "ERROR" };
@@ -364,9 +380,8 @@ class AIService {
       ];
 
       const { text, modelUsed } = await this.safeGenerateContent(contents, SYSTEM_PROMPTS.VISION_EXTRACTOR, signal);
-      const cleanedText = this.cleanAiResponse(text);
-      const jsonMatch = cleanedText.match(/\{.*\}/s);
-      return JSON.parse(jsonMatch ? jsonMatch[0] : cleanedText);
+      const parsed = this.safeParseJson(text);
+      return parsed || null;
     } catch (error: any) {
       if (error.name === 'AbortError') return null;
       console.warn("⚠️ AI Multimodal Falhou. Iniciando Simulação Tática (Opção D)...");

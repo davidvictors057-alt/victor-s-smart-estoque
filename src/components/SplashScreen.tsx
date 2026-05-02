@@ -381,16 +381,7 @@ export const SplashScreen = () => {
                     </button>
                   </div>
 
-                  {authenticating && (
-                    <motion.button
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      onClick={forceClear}
-                      className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline"
-                    >
-                      Login demorando? Limpar cache e forçar reinício
-                    </motion.button>
-                  )}
+
                 </div>
               </div>
             </div>

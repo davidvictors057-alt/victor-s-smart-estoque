@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Camera, 
-  Upload, 
-  Zap, 
+import {
+  Camera,
+  Upload,
+  Zap,
   RotateCcw,
   Eye,
   FileText,
@@ -30,7 +30,7 @@ export const AIVisionAuditView = () => {
   const [showHub, setShowHub] = useState(false);
   const [loading, setLoading] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
-  
+
   const [skipInvoice, setSkipInvoice] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
@@ -39,7 +39,7 @@ export const AIVisionAuditView = () => {
   const [inputMode, setInputMode] = useState<'photo' | 'scan'>('scan');
   const [isManualMode, setIsManualMode] = useState(false);
   const [lastModel, setLastModel] = useState<string | null>(null);
-  
+
   const { products } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -70,37 +70,33 @@ export const AIVisionAuditView = () => {
       const allIdentified: any[] = [];
 
       try {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const base64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
+        const CONCURRENCY_LIMIT = 2;
+        for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
+          const chunk = files.slice(i, i + CONCURRENCY_LIMIT);
+          const chunkPromises = chunk.map(async (file, index) => {
+            const currentIndex = i + index;
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+
+            const type = auditMode === 'stock' ? 'stock' : 'invoice';
+            const result = await aiService.auditMultiModal(
+              { data: base64.split(',')[1], mimeType: file.type },
+              type,
+              expectedData,
+              controller.signal
+            );
+            
+            setProcessingProgress(Math.round(((currentIndex + 1) / files.length) * 100));
+            setLastModel(result.modelUsed);
+
+            return result.identified || [];
           });
 
-          setProcessingProgress(Math.round(((i + 1) / files.length) * 100));
-          
-          const type = auditMode === 'stock' ? 'stock' : 'invoice';
-          const result = await aiService.auditMultiModal(
-            { data: base64.split(',')[1], mimeType: file.type }, 
-            type, 
-            expectedData,
-            controller.signal
-          );
-          setLastModel(result.modelUsed);
-
-          try {
-            const jsonMatch = result.text.match(/\{.*\}/s);
-            if (jsonMatch) {
-              const cleanedJson = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-              const parsed = JSON.parse(cleanedJson);
-              if (parsed.identified) {
-                allIdentified.push(...parsed.identified);
-              }
-            }
-          } catch (parseErr) {
-            console.error("Erro ao analisar resposta da IA para foto:", i, parseErr);
-          }
+          const results = await Promise.all(chunkPromises);
+          results.forEach(items => allIdentified.push(...items));
         }
 
         setIdentifiedData(allIdentified);
@@ -146,7 +142,7 @@ export const AIVisionAuditView = () => {
 
   const handleSKUScan = (code: string) => {
     const currentCount = Array.from(scannedSKUsRef.current).filter(c => c === code).length;
-    
+
     if (currentCount >= 3) {
       toast.error("Limite de 3 bipes por item! Ajuste no Hub se necessário.");
       return;
@@ -154,44 +150,44 @@ export const AIVisionAuditView = () => {
 
     scannedSKUsRef.current.add(code);
     setScannedSKUs(prev => [...prev, code]);
-    
+
     toast.success(`Bipe: ${code}`, {
       duration: 800,
       position: 'top-center'
     });
-    
+
     try {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
       audio.volume = 0.3;
       audio.play();
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleProcessAudit = async () => {
     if (capturedPhotos.length === 0 && scannedSKUs.length === 0) return;
-    
+
     if (isManualMode) {
-      const manualItems = scannedSKUs.length > 0 
+      const manualItems = scannedSKUs.length > 0
         ? Object.entries(scannedSKUs.reduce((acc, sku) => {
-            acc[sku] = (acc[sku] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>)).map(([sku, qty]) => {
-            const existing = products.find(p => p.sku === sku);
-            return {
-              name: existing ? existing.name.toUpperCase() : `DIGITAR NOME (${sku})`,
-              sku,
-              qty,
-              isManual: !existing
-            };
-          })
-        : capturedPhotos.map((_, i) => ({ name: `FOTO ${i+1} (EDITAR)`, qty: 1, isManual: true }));
-      
+          acc[sku] = (acc[sku] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)).map(([sku, qty]) => {
+          const existing = products.find(p => p.sku === sku);
+          return {
+            name: existing ? existing.name.toUpperCase() : `DIGITAR NOME (${sku})`,
+            sku,
+            qty,
+            isManual: !existing
+          };
+        })
+        : capturedPhotos.map((_, i) => ({ name: `FOTO ${i + 1} (EDITAR)`, qty: 1, isManual: true }));
+
       setIdentifiedData(manualItems);
       setShowHub(true);
       setCameraOpen(false);
       return;
     }
-    
+
     const controller = new AbortController();
     setAbortController(controller);
     setLoading(true);
@@ -201,40 +197,45 @@ export const AIVisionAuditView = () => {
 
     try {
       if (capturedPhotos.length > 0) {
-        for (let i = 0; i < capturedPhotos.length; i++) {
-          const photo = capturedPhotos[i];
-          setProcessingProgress(Math.round(((i + 1) / (capturedPhotos.length + (scannedSKUs.length > 0 ? 1 : 0))) * 100));
-          
-          const type = auditMode === 'stock' ? 'stock' : 'invoice';
-          const result = await aiService.auditMultiModal(
-            { data: photo.split(',')[1], mimeType: 'image/jpeg' }, 
-            type, 
-            expectedData,
-            controller.signal
-          );
-          setLastModel(result.modelUsed);
+        const CONCURRENCY_LIMIT = 2;
+        const totalItems = capturedPhotos.length + (scannedSKUs.length > 0 ? 1 : 0);
 
-          const jsonMatch = result.text.match(/\{.*\}/s);
-          if (jsonMatch) {
-            const cleanedJson = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-            const parsed = JSON.parse(cleanedJson);
-            if (parsed.identified) {
-              const enriched = parsed.identified.map((item: any) => {
+        for (let i = 0; i < capturedPhotos.length; i += CONCURRENCY_LIMIT) {
+          const chunk = capturedPhotos.slice(i, i + CONCURRENCY_LIMIT);
+          const chunkPromises = chunk.map(async (photo, index) => {
+            const currentIndex = i + index;
+            const type = auditMode === 'stock' ? 'stock' : 'invoice';
+            
+            const result = await aiService.auditMultiModal(
+              { data: photo.split(',')[1], mimeType: 'image/jpeg' },
+              type,
+              expectedData,
+              controller.signal
+            );
+            
+            setProcessingProgress(Math.round(((currentIndex + 1) / totalItems) * 100));
+            setLastModel(result.modelUsed);
+
+            if (result.identified && result.identified.length > 0) {
+              return result.identified.map((item: any) => {
                 const existingProduct = products.find(p => p.sku === item.sku);
                 return {
                   ...item,
                   name: existingProduct ? existingProduct.name.toUpperCase() : item.name.toUpperCase()
                 };
               });
-              allIdentified.push(...enriched);
             }
-          }
+            return [];
+          });
+
+          const chunkResults = await Promise.all(chunkPromises);
+          chunkResults.forEach(items => allIdentified.push(...items));
         }
       }
 
       if (scannedSKUs.length > 0) {
         setProcessingProgress(90);
-        
+
         const { catalog } = useStore.getState();
         const localItems: any[] = [];
         const unknownSKUs: string[] = [];
@@ -247,7 +248,7 @@ export const AIVisionAuditView = () => {
         Object.entries(skuCounts).forEach(([sku, qty]) => {
           const existingProduct = products.find(p => p.sku === sku);
           const catalogItem = catalog.find(c => c.sku === sku);
-          
+
           if (existingProduct || catalogItem) {
             localItems.push({
               name: (existingProduct?.name || catalogItem?.name || '').toUpperCase(),
@@ -265,7 +266,7 @@ export const AIVisionAuditView = () => {
           if (resolution.identified) {
             const enriched = resolution.identified.map((item: any) => {
               useStore.getState().addToCatalog({ sku: item.sku, name: item.name });
-              
+
               return {
                 ...item,
                 qty: skuCounts[item.sku] || 1,
@@ -297,9 +298,9 @@ export const AIVisionAuditView = () => {
 
   if (showHub) {
     return (
-      <AuditHub 
-        expected={expectedData} 
-        identified={identifiedData} 
+      <AuditHub
+        expected={expectedData}
+        identified={identifiedData}
         type={auditMode === 'stock' ? 'stock' : 'invoice'}
         onClose={() => setShowHub(false)}
       />
@@ -380,12 +381,12 @@ export const AIVisionAuditView = () => {
             </div>
           </div>
         ) : (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <button 
+            <button
               onClick={() => { setAuditMode(null); setInvoiceImage(null); setSkipInvoice(false); }}
               className="flex items-center gap-2 text-white hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
             >
@@ -439,17 +440,15 @@ export const AIVisionAuditView = () => {
                 <div className="bg-black-piano/30 p-2 rounded-[2.5rem] border border-white/5 flex gap-2">
                   <button
                     onClick={() => setInputMode('scan')}
-                    className={`flex-1 py-4 rounded-[2rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                      inputMode === 'scan' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
-                    }`}
+                    className={`flex-1 py-4 rounded-[2rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${inputMode === 'scan' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
+                      }`}
                   >
                     <Boxes className="h-4 w-4" /> BIPE
                   </button>
                   <button
                     onClick={() => setInputMode('photo')}
-                    className={`flex-1 py-3 rounded-[1.5rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                      inputMode === 'photo' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
-                    }`}
+                    className={`flex-1 py-3 rounded-[1.5rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${inputMode === 'photo' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
+                      }`}
                   >
                     <Camera className="h-4 w-4" /> FOTO (IA)
                   </button>
@@ -468,15 +467,15 @@ export const AIVisionAuditView = () => {
                         {inputMode === 'scan' ? "Scanner" : "Visão"}
                       </h3>
                       <p className="text-[9px] text-white font-mono-tactical uppercase max-w-[150px] mx-auto text-center">
-                        {isManualMode 
+                        {isManualMode
                           ? "Modo Offline Ativo"
-                          : (inputMode === 'scan' 
+                          : (inputMode === 'scan'
                             ? "Bipe de alta velocidade"
                             : "Identificação por fotos")}
                       </p>
                     </div>
 
-                    <button 
+                    <button
                       onClick={startScanner}
                       disabled={loading}
                       className="w-full bg-primary py-4 rounded-xl font-black text-black shadow-glow-cyan flex items-center justify-center gap-3 transition-all active:scale-95 group/btn"
@@ -491,25 +490,23 @@ export const AIVisionAuditView = () => {
 
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-[8px] font-black text-white uppercase tracking-widest">Protocolo de Rede</span>
-                      <div 
+                      <div
                         onClick={() => setIsManualMode(!isManualMode)}
-                        className={`relative h-7 w-28 rounded-full cursor-pointer transition-all duration-500 p-0.5 border ${
-                          isManualMode 
-                          ? 'bg-danger/10 border-danger/30 shadow-glow-danger' 
-                          : 'bg-success/10 border-success/30 shadow-glow-success'
-                        }`}
+                        className={`relative h-7 w-28 rounded-full cursor-pointer transition-all duration-500 p-0.5 border ${isManualMode
+                            ? 'bg-danger/10 border-danger/30 shadow-glow-danger'
+                            : 'bg-success/10 border-success/30 shadow-glow-success'
+                          }`}
                       >
                         <div className="absolute inset-0 flex items-center justify-between px-3">
                           <span className={`text-[7px] font-black uppercase transition-all ${isManualMode ? 'text-danger' : 'text-white'}`}>OFF</span>
                           <span className={`text-[7px] font-black uppercase transition-all ${!isManualMode ? 'text-success' : 'text-white'}`}>ON</span>
                         </div>
-                        
-                        <motion.div 
+
+                        <motion.div
                           animate={{ x: isManualMode ? 0 : 64 }}
                           transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                          className={`h-full w-10 rounded-full flex items-center justify-center shadow-md transition-colors ${
-                            isManualMode ? 'bg-danger shadow-glow-danger' : 'bg-success shadow-glow-success'
-                          }`}
+                          className={`h-full w-10 rounded-full flex items-center justify-center shadow-md transition-colors ${isManualMode ? 'bg-danger shadow-glow-danger' : 'bg-success shadow-glow-success'
+                            }`}
                         >
                           <div className="h-2 w-0.5 bg-white/40 rounded-full mx-0.5" />
                         </motion.div>
@@ -525,7 +522,7 @@ export const AIVisionAuditView = () => {
 
       <AnimatePresence>
         {loading && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -551,8 +548,8 @@ export const AIVisionAuditView = () => {
                 )}
                 <div className="text-white font-mono-tactical text-[10px] uppercase mt-2">O Cérebro está analisando as etiquetas...</div>
               </div>
-              
-              <button 
+
+              <button
                 onClick={stopAi}
                 className="mt-4 bg-red-500/10 border border-red-500/30 px-8 py-3 rounded-2xl text-red-500 font-black uppercase text-[10px] tracking-widest hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 shadow-glow-danger-sm"
               >
@@ -564,7 +561,7 @@ export const AIVisionAuditView = () => {
         )}
       </AnimatePresence>
 
-      <CameraView 
+      <CameraView
         open={cameraOpen}
         onClose={() => { setCameraOpen(false); setCapturedPhotos([]); setScannedSKUs([]); }}
         mode={inputMode}
@@ -579,7 +576,7 @@ export const AIVisionAuditView = () => {
 
       <AnimatePresence>
         {(capturedPhotos.length > 0 || scannedSKUs.length > 0) && (
-          <motion.div 
+          <motion.div
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
@@ -604,14 +601,14 @@ export const AIVisionAuditView = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => { setCapturedPhotos([]); setScannedSKUs([]); scannedSKUsRef.current.clear(); }}
                   className="h-11 w-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-danger hover:bg-danger/10 transition-all active:scale-90"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleProcessAudit}
                   className="h-11 px-6 rounded-2xl bg-primary text-black font-black text-[10px] shadow-glow-cyan uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 border border-white/20"
                 >
