@@ -77,7 +77,7 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 100 }}
-            className="fixed inset-x-0 bottom-0 z-[110] mx-auto max-w-lg rounded-t-[3rem] bg-black-piano border-t-2 border-primary/20 p-8 shadow-[0_-20px_50px_rgba(0,243,255,0.1)]"
+            className="fixed inset-x-0 bottom-0 z-[110] mx-auto max-w-lg max-h-[92vh] flex flex-col rounded-t-[3rem] bg-black-piano border-t-2 border-primary/20 p-8 pt-10 shadow-[0_-20px_50px_rgba(0,243,255,0.1)] overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
@@ -102,7 +102,6 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
               </div>
               <input 
                 type="text" 
-                autoFocus
                 value={term}
                 onChange={(e) => {
                   setTerm(e.target.value);

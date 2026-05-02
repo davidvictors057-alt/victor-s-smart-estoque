@@ -42,6 +42,11 @@ export const EmployeeHUD = () => {
     const toastId = toast.loading(`Processando ${qty} unidades...`);
     try {
       if (action === "in") {
+          // AUTO-HEAL: Busca imagem no catálogo se não houver no input
+          const catalogItem = useStore.getState().catalog.find(c => 
+            c.sku === (sku || imei) || (c.internal_code && c.internal_code === (sku || imei))
+          );
+
           await addProduct({
             name: productName,
             sku: sku || imei,
@@ -54,7 +59,7 @@ export const EmployeeHUD = () => {
             spec: spec || "Padrão",
             cost: cost || 0,
             sale: sale || 0,
-            image_url: "" 
+            image_url: catalogItem?.image_url || "" 
           });
       } else {
         // --- LÓGICA DE SAÍDA TÁTICA (MODO TANTO FAZ) ---
@@ -66,7 +71,7 @@ export const EmployeeHUD = () => {
         // 1. Filtrar por Identificador (Se houver bip)
         if (normInput) {
           potentialTargets = potentialTargets.filter(p => 
-            p.imei === normInput || p.sku === normInput
+            p.imei === normInput || p.sku === normInput || p.internal_code === normInput
           );
         }
 
@@ -128,8 +133,8 @@ export const EmployeeHUD = () => {
     setLastScannedCode(code);
     
     // AUTO-FILL SEARCH (DATABASE + CATALOG)
-    const existing = products.find(p => p.imei === code || p.sku === code);
-    const catalogItem = useStore.getState().catalog.find(c => c.sku === code);
+    const existing = products.find(p => p.imei === code || p.sku === code || p.internal_code === code);
+    const catalogItem = useStore.getState().catalog.find(c => c.sku === code || c.internal_code === code);
     
     if (existing || catalogItem) {
       const name = existing?.name || catalogItem?.name;
@@ -340,7 +345,7 @@ export const EmployeeHUD = () => {
       </motion.section>
 
       <AnimatePresence>
-        {action && (
+        {action && !cameraOpen && (
           <RegisterModal 
             action={action} 
             initialCode={lastScannedCode}
@@ -381,8 +386,8 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
   const { products, catalog } = useStore();
   
   // TACTICAL SEARCH: Try stock first, then catalog
-  const existingProduct = products.find(p => p.imei === initialCode || p.sku === initialCode);
-  const catalogItem = catalog.find(c => c.sku === initialCode);
+  const existingProduct = products.find(p => p.imei === initialCode || p.sku === initialCode || p.internal_code === initialCode);
+  const catalogItem = catalog.find(c => c.sku === initialCode || c.internal_code === initialCode);
   
   const [product, setProduct] = useState(existingProduct?.name || catalogItem?.name || "");
   const [sku, setSku] = useState(catalogItem?.sku || existingProduct?.sku || "");
@@ -398,8 +403,8 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
   // Synchronize state when initialCode changes (e.g. after a scan while modal is open)
   useEffect(() => {
     if (initialCode) {
-      const found = products.find(p => p.imei === initialCode || p.sku === initialCode);
-      const inCatalog = catalog.find(c => c.sku === initialCode);
+      const found = products.find(p => p.imei === initialCode || p.sku === initialCode || p.internal_code === initialCode);
+      const inCatalog = catalog.find(c => c.sku === initialCode || c.internal_code === initialCode);
       
       if (found || inCatalog) {
         setProduct(found?.name || inCatalog?.name || "");
@@ -440,39 +445,39 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
         exit={{ y: 40, opacity: 0, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 320, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-black-piano relative w-full max-w-md overflow-hidden rounded-t-[2.5rem] border-[3px] sm:rounded-[2.5rem] ${
+        className={`bg-black-piano relative w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden rounded-t-[2.5rem] border-[3px] sm:rounded-[2.5rem] ${
           isIn ? "neon-green-border shadow-[0_0_50px_rgba(34,197,94,0.3)]" : "neon-red-border shadow-[0_0_50px_rgba(239,68,68,0.3)]"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-border/40 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                isIn ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
-              }`}
-            >
-              {isIn ? <ArrowDownToLine className="h-4 w-4" /> : <ArrowUpFromLine className="h-4 w-4" />}
-            </div>
-            <div>
-              <div className="font-mono-tactical text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                Registro físico
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="flex items-center justify-between border-b border-border/40 px-5 py-4 sticky top-0 bg-black-piano z-10">
+            <div className="flex items-center gap-2">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                  isIn ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
+                }`}
+              >
+                {isIn ? <ArrowDownToLine className="h-4 w-4" /> : <ArrowUpFromLine className="h-4 w-4" />}
               </div>
-              <div className={`text-base font-bold ${isIn ? "text-success" : "text-danger"}`}>
-                {isIn ? "DAR ENTRADA" : "DAR SAÍDA"}
+              <div>
+                <div className="font-mono-tactical text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                  Registro físico
+                </div>
+                <div className={`text-base font-bold ${isIn ? "text-success" : "text-danger"}`}>
+                  {isIn ? "DAR ENTRADA" : "DAR SAÍDA"}
+                </div>
               </div>
             </div>
+            <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
 
-        <div className="space-y-4 p-5">
+          <div className="space-y-4 p-5">
           {/* Inputs */}
           <Field icon={Tag} label="Nomenclatura">
             <div className="flex items-center gap-2">
               <input
-                autoFocus
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
                 placeholder="Xiaomi Redmi Note 13 Pro+"
@@ -661,6 +666,7 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
             </div>
           )}
 
+
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={onClose}
@@ -690,8 +696,9 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
             </motion.button>
           </div>
         </div>
-      </motion.div>
+      </div>
     </motion.div>
+  </motion.div>
   );
 };
 

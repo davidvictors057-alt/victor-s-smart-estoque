@@ -12,7 +12,11 @@ import {
   Plus,
   Minus,
   FileDown,
-  Boxes
+  Boxes,
+  X,
+  FileText,
+  Trash2,
+  Edit2
 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
@@ -253,10 +257,9 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-xl">
-      {/* Header Tático */}
-      {/* Header Tático */}
-      <header className="bg-black-piano border-b border-white/5 p-6 flex flex-col gap-4">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-xl h-[100dvh]">
+      {/* Header Tático - Sticky and Safe-Area Optimized */}
+      <header className="sticky top-0 z-30 bg-black-piano border-b border-white/5 p-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] flex flex-col gap-4 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-glow-cyan border border-primary/20">
@@ -282,9 +285,10 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
             </button>
             <button 
               onClick={onClose}
-              className="h-12 w-12 rounded-xl bg-white/5 flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-all active:scale-95 border border-white/10"
+              className="h-12 w-12 rounded-xl bg-white/5 flex items-center justify-center text-white hover:text-white hover:bg-rose-500/10 hover:text-rose-500 transition-all active:scale-95 border border-white/10"
+              aria-label="Fechar Hub"
             >
-              <RefreshCcw className="h-5 w-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -474,31 +478,36 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
       </main>
 
       {/* Footer Actions */}
-      {/* Footer Actions Compacto */}
-      <footer className="p-4 pb-8 sm:pb-4 bg-black-piano border-t border-white/5 flex items-center gap-3">
-        <button 
-          onClick={handleSync}
-          disabled={isSyncing}
-          className="flex-1 h-12 rounded-2xl bg-success/20 border border-success/40 font-black text-success hover:bg-success/30 flex items-center justify-center gap-2 transition-all uppercase text-[10px] tracking-widest disabled:opacity-50 shadow-glow-green"
-        >
-          {isSyncing ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          <span className="hidden xs:inline">FINALIZAR</span>
-          <span className="xs:hidden">SALVAR</span>
-        </button>
-        
-        <button 
-          onClick={handleExportPDF}
-          className="h-12 px-5 rounded-2xl bg-white/5 border border-white/10 font-black text-white hover:bg-white/10 flex items-center justify-center gap-2 transition-all uppercase text-[9px] tracking-widest"
-        >
-          <FileDown className="h-4 w-4" /> <span>PDF</span>
-        </button>
-        
-        <button 
-          onClick={handleExport}
-          className="h-12 px-5 rounded-2xl bg-primary font-black text-black shadow-glow-cyan hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 transition-all uppercase text-[9px] tracking-widest"
-        >
-          <Share2 className="h-4 w-4" /> <span>ZAP</span>
-        </button>
+      {/* Finalization Dock - Tactical Command */}
+      <footer className="p-4 sm:p-6 bg-black-piano border-t border-white/5 relative z-10">
+        <div className="max-w-md mx-auto flex items-center gap-3">
+          <button 
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="flex-1 h-14 rounded-2xl bg-success text-black font-black shadow-glow-green hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 transition-all uppercase text-[11px] tracking-widest disabled:opacity-50 border-2 border-white/20"
+          >
+            {isSyncing ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+            <span>CONCLUIR</span>
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleExportPDF}
+              className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all active:scale-90"
+              title="Exportar PDF"
+            >
+              <FileDown className="h-5 w-5" />
+            </button>
+            
+            <button 
+              onClick={handleExport}
+              className="h-14 w-14 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-glow-cyan-sm hover:bg-primary hover:text-black transition-all active:scale-90"
+              title="Enviar via WhatsApp"
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       </footer>
       {/* Popup de Detalhamento de Divergência */}
       <AnimatePresence>

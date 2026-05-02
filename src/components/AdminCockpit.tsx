@@ -666,7 +666,12 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-black">
                   <img
-                    src={p.image_url || "/products/placeholder.png"}
+                    src={
+                      p.image_url || 
+                      useStore.getState().catalog.find(c => c.sku === p.sku && c.image_url)?.image_url ||
+                      useStore.getState().catalog.find(c => c.name === p.name && c.image_url)?.image_url ||
+                      "/products/placeholder.png"
+                    }
                     alt={p.name}
                     className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-60 group-hover:opacity-100"
                   />

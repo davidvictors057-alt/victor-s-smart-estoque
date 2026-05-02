@@ -321,7 +321,23 @@ export const CatalogAuditHUD = ({ open, onClose, onScanRequest, onPhotoRequest, 
                             <label className="text-[9px] font-mono-tactical text-white uppercase tracking-[0.2em]">Nome do Produto</label>
                             <div className="bg-primary/10 border border-primary/20 text-primary text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1.5 animate-pulse">
                               <Package className="w-2.5 h-2.5" />
-                              ESTOQUE ATUAL: {useStore.getState().products.filter(p => p.sku?.trim() === foundItem.sku.trim() && p.status === 'in_stock').length}
+                              ESTOQUE ATUAL: {
+                                (() => {
+                                  const allProducts = useStore.getState().products;
+                                  return allProducts.filter(p => {
+                                    if (p.status !== 'in_stock') return false;
+                                    
+                                    const matchSku = p.sku?.trim().toUpperCase() === foundItem.sku.trim().toUpperCase();
+                                    const matchInternal = foundItem.internal_code && (
+                                      p.internal_code?.trim().toUpperCase() === foundItem.internal_code.trim().toUpperCase() ||
+                                      p.sku?.trim().toUpperCase() === foundItem.internal_code.trim().toUpperCase()
+                                    );
+                                    const matchName = p.name.trim().toUpperCase() === foundItem.name.trim().toUpperCase();
+                                    
+                                    return matchSku || matchInternal || matchName;
+                                  }).length;
+                                })()
+                              }
                             </div>
                           </div>
                           {isEditing ? (

@@ -66,14 +66,20 @@ export const SplashScreen = () => {
         toast.success(`Bem-vindo, ${employee.full_name.split(' ')[0]}!`);
       }
     } catch (err: any) {
+      console.error("🚨 [Login] Erro fatal:", err);
       setError(true);
       if (!customPin) setPin("");
-      toast.error("ACESSO NEGADO", {
-        description: "Credenciais inválidas ou erro de conexão."
+      toast.error("FALHA NA CONEXÃO TÁTICA", {
+        description: err.message || "Credenciais inválidas ou timeout."
       });
     } finally {
       setAuthenticating(false);
     }
+  };
+
+  const forceClear = () => {
+    localStorage.clear();
+    window.location.reload();
   };
 
   const scrollEmployees = (direction: 'left' | 'right') => {
@@ -356,19 +362,35 @@ export const SplashScreen = () => {
                 )}
 
                 {/* Integrated Actions */}
-                <div className="mt-4 flex w-full gap-3 border-t border-white/5 pt-5">
-                  <motion.button
-                    whileTap={{ scale: 0.96 }}
-                    onClick={handleBiometric}
-                    className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-3 sm:py-4 transition-all hover:border-primary/40 hover:bg-white/10"
-                  >
-                    <Fingerprint className="h-4 w-4 text-primary" />
-                    <span className="text-[8px] sm:text-[10px] font-black tracking-wider text-white/95 uppercase">BIOMETRIA</span>
-                  </motion.button>
+                <div className="mt-4 flex w-full flex-col gap-3 border-t border-white/5 pt-5">
+                  <div className="flex gap-3">
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={handleBiometric}
+                      className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-3 sm:py-4 transition-all hover:border-primary/40 hover:bg-white/10"
+                    >
+                      <Fingerprint className="h-4 w-4 text-primary" />
+                      <span className="text-[8px] sm:text-[10px] font-black tracking-wider text-white/95 uppercase">BIOMETRIA</span>
+                    </motion.button>
 
-                  <button className="hover-neon-blue flex flex-1 items-center justify-center rounded-xl border border-white/10 bg-white/5 py-3 sm:py-4 text-[8px] sm:text-[10px] font-black tracking-wider text-white transition-all uppercase">
-                    ESQUECI O PIN
-                  </button>
+                    <button 
+                      onClick={() => toast.info("Procure o administrador para resetar seu PIN.")}
+                      className="hover-neon-blue flex flex-1 items-center justify-center rounded-xl border border-white/10 bg-white/5 py-3 sm:py-4 text-[8px] sm:text-[10px] font-black tracking-wider text-white transition-all uppercase"
+                    >
+                      ESQUECI O PIN
+                    </button>
+                  </div>
+
+                  {authenticating && (
+                    <motion.button
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      onClick={forceClear}
+                      className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline"
+                    >
+                      Login demorando? Limpar cache e forçar reinício
+                    </motion.button>
+                  )}
                 </div>
               </div>
             </div>

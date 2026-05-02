@@ -7,6 +7,7 @@ import { CameraView } from "@/components/CameraView";
 import { toast } from "sonner";
 import { useStore, CatalogItem } from "@/store/useStore";
 import { aiService } from "@/services/aiService";
+import { imageService } from "@/services/imageService";
 
 export const RegisterView = () => {
   const [pendingQueue, setPendingQueue] = useState<any[]>([]);
@@ -18,6 +19,7 @@ export const RegisterView = () => {
   const [auditSku, setAuditSku] = useState("");
   const [auditPhotoUrl, setAuditPhotoUrl] = useState<string | null>(null);
   const { bulkAddProducts, catalog } = useStore();
+  const [isUploading, setIsUploading] = useState(false);
 
   const playBeep = () => {
     try {
@@ -132,23 +134,35 @@ export const RegisterView = () => {
   };
 
   const saveBatch = async () => {
-    if (pendingQueue.length === 0) return;
-    const toastId = toast.loading(`Registrando ${pendingQueue.length} itens...`);
+    if (pendingQueue.length === 0 || isUploading) return;
+    setIsUploading(true);
+    const toastId = toast.loading(`Processando imagens e registrando ${pendingQueue.length} itens...`);
+    
     try {
-      // Filtrar itens que ainda estão "IDENTIFICANDO..." para evitar lixo no banco
-      const itemsToSave = pendingQueue.map(item => ({
+      // 1. Upload de Imagens (Apenas se forem Base64 novas)
+      const queueWithStoredImages = await Promise.all(pendingQueue.map(async (item, idx) => {
+        if (item.image_url && item.image_url.startsWith('data:image')) {
+          toast.loading(`Subindo imagem ${idx + 1}/${pendingQueue.length}...`, { id: toastId });
+          const storedUrl = await imageService.processBase64(item.image_url, `product-${idx}.webp`);
+          return { ...item, image_url: storedUrl || item.image_url };
+        }
+        return item;
+      }));
+
+      // 2. Filtrar itens para evitar lixo no banco
+      const itemsToSave = queueWithStoredImages.map(item => ({
         ...item,
         name: item.name === 'IDENTIFICANDO...' ? `Produto (Sem Identificação)` : item.name
       }));
 
       await bulkAddProducts(itemsToSave);
       setPendingQueue([]);
-      // toast.success já é chamado dentro do bulkAddProducts
-      toast.dismiss(toastId);
+      toast.success("Lote registrado com sucesso no Storage!", { id: toastId });
     } catch (error: any) {
       console.error("Erro ao salvar lote:", error);
-      // O erro já foi mostrado pelo toast dentro do bulkAddProducts, mas garantimos aqui
-      toast.error("Falha ao registrar o lote no servidor.", { id: toastId });
+      toast.error("Falha ao registrar o lote.", { id: toastId });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -235,22 +249,53 @@ export const RegisterView = () => {
         )}
       </AnimatePresence>
 
-      {/* Footer Finalizador */}
-      {pendingQueue.length > 0 && (
-        <motion.div 
-          initial={{ y: 100 }}
-          animate={{ y: 0 }}
-          className="fixed bottom-24 left-0 right-0 z-50 p-6 pointer-events-none"
-        >
-          <button
-            onClick={saveBatch}
-            className="w-full max-w-lg mx-auto bg-primary py-5 rounded-[25px] text-black font-black uppercase tracking-[0.2em] shadow-glow-cyan active:scale-95 transition-all flex items-center justify-center gap-4 pointer-events-auto"
+      {/* Tactical Intake Dock - Global Command Bar */}
+      <AnimatePresence>
+        {pendingQueue.length > 0 && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-[95px] left-0 right-0 z-50 px-4 pointer-events-none"
           >
-            <CheckCircle2 className="w-6 h-6" />
-            REGISTRAR LOTE
-          </button>
-        </motion.div>
-      )}
+            <div className="max-w-lg mx-auto glass-panel-strong rounded-[2.5rem] p-3 flex items-center justify-between gap-3 border border-primary/30 shadow-glow-cyan/20 pointer-events-auto">
+              {/* Intake Intel */}
+              <div className="flex items-center gap-3 ml-2">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[7px] font-black text-primary/60 uppercase tracking-[0.3em]">Intake Flow</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black text-white italic">{pendingQueue.length}</span>
+                    <span className="text-[8px] font-black text-white/40 uppercase">Itens em Fila</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Cluster */}
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setPendingQueue([])}
+                  className="h-11 w-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-danger hover:bg-danger/10 transition-all active:scale-90"
+                  title="Limpar Fila"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={saveBatch}
+                  disabled={isUploading}
+                  className="h-11 px-6 rounded-2xl bg-primary text-black font-black text-[10px] shadow-glow-cyan uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 border border-white/20 disabled:opacity-50"
+                >
+                  {isUploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  REGISTRAR LOTE
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Camera Modal */}
       <CameraView 

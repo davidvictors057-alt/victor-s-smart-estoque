@@ -9,6 +9,8 @@ import { useStore } from "@/store/useStore";
 import { CatalogExport } from "@/components/CatalogExport";
 import { AIProductInsight } from "@/components/AIProductInsight";
 
+import { imageService } from "@/services/imageService";
+
 export const StockView = () => {
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -21,6 +23,7 @@ export const StockView = () => {
   const { products, deleteProductsBulk, updateProductsBulk } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Group products by name to calculate stock (ONLY IN_STOCK)
   const groupedProducts = (products || []).reduce((acc, p) => {
@@ -32,14 +35,28 @@ export const StockView = () => {
     const key = `${nameNorm}-${specNorm}`;
     
     if (!acc[key]) {
-      acc[key] = { ...p, stock: 0 };
+      // Tentar buscar imagem no catálogo com busca profunda (SKU -> Nome -> Qualquer correspondência com foto)
+      const catalog = useStore.getState().catalog;
+      const bestImage = p.image_url || 
+                        catalog.find(c => c.sku === p.sku && c.image_url)?.image_url ||
+                        catalog.find(c => c.name === p.name && c.image_url)?.image_url;
+
+      acc[key] = { 
+        ...p, 
+        image_url: bestImage || null,
+        stock: 0 
+      };
     }
     acc[key].stock += 1;
     return acc;
   }, {} as Record<string, any>);
 
   const items = Object.values(groupedProducts);
-  const filtered = items.filter((i: any) => i.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = items.filter((i: any) => 
+    i.name.toLowerCase().includes(query.toLowerCase()) || 
+    (i.internal_code && i.internal_code.toLowerCase().includes(query.toLowerCase())) ||
+    (i.sku && i.sku.toLowerCase().includes(query.toLowerCase()))
+  );
 
   return (
     <div className="space-y-4 px-3 pb-24">
@@ -236,11 +253,24 @@ export const StockView = () => {
         title="Atualizar Foto" 
         mode="photo" 
         onCapture={async (url) => {
-          const targets = products.filter(p => p.name === selectedItem.name && p.spec === selectedItem.spec);
-          await updateProductsBulk(targets.map(p => p.id), { image_url: url });
-          setCamOpen(false);
-          setSelectedItem(null);
-          toast.success("Foto atualizada em lote");
+          if (isUploading) return;
+          setIsUploading(true);
+          const toastId = toast.loading("Otimizando e subindo imagem...");
+          try {
+            const storedUrl = await imageService.processBase64(url, `update-${selectedItem.name}.webp`);
+            if (!storedUrl) throw new Error("Falha no upload");
+            
+            const targets = products.filter(p => p.name === selectedItem.name && p.spec === selectedItem.spec);
+            await updateProductsBulk(targets.map(p => p.id), { image_url: storedUrl });
+            
+            setCamOpen(false);
+            setSelectedItem(null);
+            toast.success("Foto atualizada e comprimida com sucesso!", { id: toastId });
+          } catch (err) {
+            toast.error("Erro ao atualizar foto.", { id: toastId });
+          } finally {
+            setIsUploading(false);
+          }
         }}
       />
       <CameraView open={scanOpen} onClose={() => setScanOpen(false)} title="Busca Tática" mode="scan" />
@@ -355,7 +385,6 @@ const AddProductModal = ({ onClose }: { onClose: () => void }) => {
             <div className="group rounded-[2rem] bg-white/[0.03] p-6 ring-2 ring-white/5 focus-within:ring-primary/50 transition-all shadow-xl border-b border-white/5">
               <div className="font-mono-tactical mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-white group-focus-within:text-primary">NOME DO MODELO</div>
               <input
-                autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Xiaomi Redmi 13C..."

@@ -445,42 +445,6 @@ class AIService {
     }
   }
 
-  async simulateMarketData(productName: string, ean?: string) {
-    try {
-      const prompt = `
-        SIMULAÇÃO TÁTICA DE MERCADO (MODO DEMO)
-        PRODUTO: ${productName} ${ean ? `(EAN: ${ean})` : ""}
-        
-        Aja como um analista de mercado do Mercado Livre Brasil.
-        Gere 3 resultados fictícios mas realistas de vendedores "Platinum" ou "Gold" para este produto.
-        Considere os preços atuais de mercado em Reais (BRL).
-        
-        Retorne APENAS um JSON no formato: 
-        {
-          "results": [
-            {
-              "price": number,
-              "permalink": "https://www.mercadolivre.com.br/demo",
-              "seller_reputation": "platinum",
-              "logistic_type": "full",
-              "available_quantity": 10,
-              "sold_quantity": 50,
-              "isSimulation": true
-            }
-          ]
-        }
-      `;
-
-      const { text } = await this.safeGenerateContent(prompt);
-      const cleanJson = this.cleanAiResponse(text);
-      const jsonMatch = cleanJson.match(/\{.*\}/s);
-      const data = JSON.parse(jsonMatch ? jsonMatch[0] : cleanJson);
-      return { results: data.results || [], modelUsed: "GEMINI-SIMULATION" };
-    } catch (error) {
-      console.error("Market Simulation AI Error:", error);
-      return { results: [], modelUsed: "ERROR" };
-    }
-  }
 }
 
 export const aiService = new AIService();

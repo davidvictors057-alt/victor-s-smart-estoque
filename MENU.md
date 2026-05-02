@@ -30,8 +30,9 @@ Use estes comandos para guiar o fluxo de trabalho automatizado:
 ### 🌐 Acesso Remoto
 O servidor está configurado para permitir acesso via celular na rede local:
 
-- **URL Local**: `http://localhost:8081`
-- **URL Rede**: `https://192.168.0.117:8080` (IP atual do computador)
+- **URL Local**: `https://localhost:8080`
+- **URL Rede**: `https://10.129.144.27:8080` (IP atual do computador)
+- **Vision Core**: `http://10.129.144.27:8000` (Backend de Visão)
 
 ---
 

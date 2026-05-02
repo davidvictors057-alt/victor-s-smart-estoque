@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, X, ScanLine, Zap, RefreshCw, AlertCircle, CheckCircle2, Image as ImageIcon } from "lucide-react";
+import { Camera, X, ScanLine, Zap, RefreshCw, AlertCircle, CheckCircle2, Image as ImageIcon, Hash } from "lucide-react";
 import { ManualInputModal } from "./ManualInputModal";
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 
@@ -155,7 +155,14 @@ export const CameraView = ({
 
   const handleManualSubmit = (code: string) => {
     onScan?.(code);
-    onClose();
+    if (!multiScan) {
+      onClose();
+    } else {
+      setManualOpen(false);
+      // Feedback visual de "Adicionado via Teclado"
+      setScanFeedback(code);
+      setTimeout(() => setScanFeedback(null), 1000);
+    }
   };
 
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,8 +188,8 @@ export const CameraView = ({
           role="dialog"
           aria-modal="true"
         >
-          {/* Header */}
-          <div className="glass-panel-strong relative z-10 flex items-center justify-between px-4 py-3">
+          {/* Header - Fixed at Top with High Z-Index */}
+          <div className="glass-panel-strong relative z-[60] flex items-center justify-between px-4 py-3 pt-[env(safe-area-inset-top)]">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 {mode === "scan" ? <ScanLine className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
@@ -212,19 +219,19 @@ export const CameraView = ({
               className="h-full w-full object-cover"
             />
 
-            {/* Scan Feedback Animation */}
+            {/* Scan Feedback Animation - Centered and Non-Obstructive */}
             <AnimatePresence>
               {scanFeedback && (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.5, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 1.2 }}
-                  className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none"
+                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center justify-center z-50 pointer-events-none px-6"
                 >
-                  <div className="bg-success/90 backdrop-blur-xl px-8 py-4 rounded-3xl border-2 border-white/20 shadow-[0_0_50px_rgba(34,197,94,0.5)] flex flex-col items-center">
-                    <CheckCircle2 className="h-12 w-12 text-black mb-2 stroke-[3]" />
-                    <span className="text-black font-black uppercase tracking-tighter text-xl italic">ADICIONADO</span>
-                    <span className="text-black/60 font-mono-tactical text-[10px] mt-1">{scanFeedback}</span>
+                  <div className="bg-success/90 backdrop-blur-xl px-6 py-4 rounded-[2rem] border-2 border-white/20 shadow-[0_0_50px_rgba(34,197,94,0.5)] flex flex-col items-center max-w-[280px]">
+                    <CheckCircle2 className="h-10 w-10 text-black mb-2 stroke-[3]" />
+                    <span className="text-black font-black uppercase tracking-tighter text-lg italic text-center leading-none">ADICIONADO</span>
+                    <span className="text-black/60 font-mono-tactical text-[9px] mt-1 truncate w-full text-center">{scanFeedback}</span>
                   </div>
                 </motion.div>
               )}
@@ -271,80 +278,91 @@ export const CameraView = ({
             onConfirm={handleManualSubmit} 
           />
 
-          {/* Controls */}
-          <div className="glass-panel-strong relative z-10 flex items-center justify-around px-4 py-5 pb-10">
-            <button
-              onClick={() => setFacing((f) => (f === "environment" ? "user" : "environment"))}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10"
-              aria-label="Trocar câmera"
-            >
-              <RefreshCw className="h-5 w-5" />
-            </button>
+          {/* Tactical Controls HUD - Completely Redesigned for Mobile Optimization */}
+          <div className="glass-panel-strong relative z-10 p-4 pb-8 sm:pb-10">
+            <div className="flex items-center justify-between gap-4 max-w-md mx-auto">
+              
+              {/* Left Wing: Camera Flip */}
+              <button
+                onClick={() => setFacing((f) => (f === "environment" ? "user" : "environment"))}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-foreground transition-all active:scale-90"
+                aria-label="Trocar câmera"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
 
-            {multiCapture || (mode === 'scan' && multiScan) ? (
-              <div className="flex flex-col items-center">
-                <span className="font-mono-tactical text-[10px] text-primary font-black mb-1">{capturedCount} ITENS</span>
-                <div className="h-1 w-8 bg-primary/20 rounded-full" />
+              {/* Center Command: Action Cluster */}
+              <div className="flex items-center gap-3">
+                {/* Manual Trigger (Internal Code) - ALWAYS VISIBLE IN SCAN MODE */}
+                {mode === "scan" && (
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setManualOpen(true)}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/30 text-primary shadow-glow-cyan-sm transition-all active:scale-90"
+                  >
+                    <Hash className="h-5 w-5" />
+                  </motion.button>
+                )}
+
+                {/* Main Action Trigger */}
+                <div className="relative group">
+                  <motion.button
+                    whileTap={{ scale: 0.92 }}
+                    onClick={mode === "photo" ? handleCapture : (multiScan ? onFinalize : () => {})}
+                    disabled={!ready}
+                    className={`flex h-20 w-20 items-center justify-center rounded-full border-4 shadow-2xl transition-all ${
+                      mode === 'photo' 
+                      ? 'border-primary bg-primary/20 shadow-glow-cyan' 
+                      : 'border-success bg-success/20 shadow-glow-green'
+                    } disabled:opacity-40`}
+                  >
+                    {mode === "photo" ? (
+                      <div className="h-12 w-12 rounded-full bg-primary shadow-glow-cyan animate-pulse-slow" />
+                    ) : (
+                      <div className="relative flex items-center justify-center">
+                        <ScanLine className={`h-8 w-8 text-success ${ready ? 'animate-pulse' : ''}`} />
+                      </div>
+                    )}
+                  </motion.button>
+
+                  {/* Multi-mode Counter Indicator */}
+                  {(multiCapture || multiScan) && capturedCount > 0 && (
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1 -right-1 bg-white text-black text-[9px] font-black h-5 w-5 rounded-full flex items-center justify-center border-2 border-black shadow-lg"
+                    >
+                      {capturedCount}
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Finalize Batch Button - Positioned Side-by-Side instead of overlapping */}
+                {(multiCapture || multiScan) && capturedCount > 0 && (
+                  <motion.button
+                    initial={{ scale: 0, x: -20 }}
+                    animate={{ scale: 1, x: 0 }}
+                    onClick={onFinalize}
+                    className="flex h-12 px-5 items-center justify-center rounded-2xl bg-success text-black font-black text-[10px] shadow-glow-green uppercase tracking-widest gap-2 transition-all active:scale-90 border-2 border-white/20"
+                  >
+                    <Zap className="h-4 w-4" />
+                    PRONTO
+                  </motion.button>
+                )}
               </div>
-            ) : (
-              <div className="w-12" />
-            )}
 
-            <div className="relative">
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={mode === "photo" ? handleCapture : (multiScan ? onFinalize : () => {})}
-                disabled={!ready}
-                className={`flex h-20 w-20 items-center justify-center rounded-full border-4 shadow-2xl transition-all ${
-                  mode === 'photo' 
-                  ? 'border-primary bg-primary/20 shadow-glow-cyan' 
-                  : 'border-success bg-success/20 shadow-glow-green'
-                } disabled:opacity-40`}
-                aria-label={mode === "photo" ? "Capturar" : "Scanner Ativo"}
+              {/* Right Wing: Gallery or Close */}
+              <button
+                onClick={() => mode === "photo" ? fileInputRef.current?.click() : onClose()}
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-foreground transition-all active:scale-90 ${mode !== 'photo' ? 'hover:text-danger' : 'hover:text-primary'}`}
               >
                 {mode === "photo" ? (
-                  <div className="h-12 w-12 rounded-full bg-primary shadow-[0_0_20px_rgba(0,163,255,0.6)]" />
-                ) : (
-                  <div className="relative flex items-center justify-center">
-                    <ScanLine className={`h-8 w-8 text-success ${ready ? 'animate-pulse' : ''}`} />
-                    {multiScan && capturedCount > 0 && (
-                      <motion.div 
-                        layoutId="counter"
-                        className="absolute -top-1 -right-1 bg-white text-black text-[8px] font-black h-4 w-4 rounded-full flex items-center justify-center border border-black"
-                      >
-                        {capturedCount}
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-              </motion.button>
-              
-              {(multiCapture || multiScan) && capturedCount > 0 && (
-                <motion.button
-                  initial={{ scale: 0, y: 20 }}
-                  animate={{ scale: 1, y: 0 }}
-                  onClick={onFinalize}
-                  className="absolute -top-14 left-1/2 -translate-x-1/2 bg-success py-3 px-8 rounded-full text-black font-black text-[10px] shadow-[0_0_30px_rgba(34,197,94,0.4)] uppercase tracking-widest flex items-center gap-2 whitespace-nowrap z-20 border-2 border-white/20"
-                >
-                  <Zap className="h-3 w-3" />
-                  CONCLUIR LOTE
-                </motion.button>
-              )}
-            </div>
-
-            <button
-              onClick={() => mode === "photo" ? fileInputRef.current?.click() : onClose()}
-              className={`flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-foreground hover:bg-white/10 transition-all active:scale-95 ${mode !== 'photo' ? 'hover:text-danger' : 'hover:text-primary'}`}
-            >
-              {mode === "photo" ? (
-                <div className="flex flex-col items-center gap-0.5">
                   <ImageIcon className="h-5 w-5" />
-                  <span className="font-mono-tactical text-[7px] font-black uppercase">Galeria</span>
-                </div>
-              ) : (
-                <X className="h-5 w-5" />
-              )}
-            </button>
+                ) : (
+                  <X className="h-5 w-5" />
+                )}
+              </button>
+            </div>
 
             <input 
               type="file" 

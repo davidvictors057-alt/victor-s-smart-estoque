@@ -44,7 +44,6 @@ export const ManualInputModal = ({ open, onClose, onConfirm }: ManualInputModalP
             
             <div className="group mb-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition-all focus-within:border-primary focus-within:bg-white/[0.07] focus-within:shadow-[0_0_30px_rgba(0,163,255,0.15)]">
               <input
-                autoFocus
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 placeholder="000000"

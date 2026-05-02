@@ -222,7 +222,7 @@ export const useStore = create<AppState>()(
 
       fetchProducts: async () => {
         try {
-          const columns = 'id, sku, name, spec, imei, imei2, brand, category, cost, sale, status, internal_code, created_at, updated_at';
+          const columns = 'id, sku, name, spec, imei, imei2, brand, category, cost, sale, status, image_url, internal_code, created_at, updated_at';
           const { data, error } = await supabase.from('products').select(columns).order('created_at', { ascending: false }).limit(1000);
           if (error) throw error;
           if (data) set({ products: data as Product[] });
@@ -244,7 +244,7 @@ export const useStore = create<AppState>()(
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          const columns = 'sku, name, spec, cost, sale, client_id, internal_code, last_updated';
+          const columns = 'sku, name, spec, image_url, cost, sale, client_id, internal_code, last_updated';
           const { data, error } = await supabase
             .from('product_catalog')
             .select(columns)
@@ -425,7 +425,7 @@ export const useStore = create<AppState>()(
           // Otimização: Limitamos os campos do produto para evitar carregar base64 pesada
           const { data, error } = await supabase
             .from('movements')
-            .select('*, product:products(id, name, sku), operator:profiles(*)')
+            .select('*, product:products(id, name, sku, image_url), operator:profiles(*)')
             .order('timestamp', { ascending: false })
             .limit(100);
           if (error) throw error;
