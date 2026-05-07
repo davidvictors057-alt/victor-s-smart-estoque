@@ -613,18 +613,21 @@ export const useStore = create<AppState>()(
           
           if (error) throw error;
 
-          // Se for uma atualização em lote de metadados, sincronizar o primeiro SKU encontrado (assumindo que o lote é do mesmo produto)
-          const firstProd = get().products.find(p => ids.includes(p.id));
-          const finalSku = updates.sku || firstProd?.sku;
-          
-          if (finalSku && (updates.name || updates.cost !== undefined || updates.sale !== undefined || updates.image_url !== undefined)) {
-            await get().updateCatalogItem(finalSku, {
-              name: updates.name || firstProd?.name,
-              cost: updates.cost !== undefined ? updates.cost : firstProd?.cost,
-              sale: updates.sale !== undefined ? updates.sale : firstProd?.sale,
-              image_url: updates.image_url !== undefined ? updates.image_url : firstProd?.image_url,
-              spec: updates.spec !== undefined ? updates.spec : firstProd?.spec,
-            });
+          // Propagação para o catálogo: Identificar todos os SKUs únicos afetados
+          const affectedProducts = get().products.filter(p => ids.includes(p.id));
+          const uniqueSkus = Array.from(new Set(affectedProducts.map(p => p.sku).filter(Boolean)));
+
+          if (uniqueSkus.length > 0 && (updates.name || updates.cost !== undefined || updates.sale !== undefined || updates.image_url !== undefined || updates.spec !== undefined)) {
+            const catalogPromises = uniqueSkus.map(sku => 
+              get().updateCatalogItem(sku!, {
+                name: updates.name,
+                cost: updates.cost,
+                sale: updates.sale,
+                image_url: updates.image_url,
+                spec: updates.spec,
+              })
+            );
+            await Promise.all(catalogPromises);
           }
           
           set((state) => ({ 

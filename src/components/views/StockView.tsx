@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Minus, Search, Boxes, Filter, MoreVertical, Package, Zap, ArrowRight, X, Camera, ChevronRight, ScanLine } from "lucide-react";
 import { CameraView } from "@/components/CameraView";
@@ -22,6 +22,7 @@ export const StockView = () => {
   const [auditOpen, setAuditOpen] = useState(false);
   const { products, deleteProductsBulk, updateProductsBulk } = useStore();
   const [isEditing, setIsEditing] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -44,19 +45,36 @@ export const StockView = () => {
       acc[key] = { 
         ...p, 
         image_url: bestImage || null,
-        stock: 0 
+        stock: 0,
+        allSkus: new Set<string>(),
+        internal_codes: new Set<string>(p.internal_code ? [p.internal_code] : [])
       };
     }
     acc[key].stock += 1;
+    if (p.sku) acc[key].allSkus.add(p.sku);
+    if (p.internal_code) {
+      if (!acc[key].internal_codes) acc[key].internal_codes = new Set<string>();
+      acc[key].internal_codes.add(p.internal_code);
+    }
     return acc;
   }, {} as Record<string, any>);
 
   const items = Object.values(groupedProducts);
-  const filtered = items.filter((i: any) => 
-    i.name.toLowerCase().includes(query.toLowerCase()) || 
-    (i.internal_code && i.internal_code.toLowerCase().includes(query.toLowerCase())) ||
-    (i.sku && i.sku.toLowerCase().includes(query.toLowerCase()))
-  );
+  const searchTerms = query.toLowerCase().trim().split(/\s+/);
+
+  const filtered = items.filter((i: any) => {
+    const cleanTerm = query.toLowerCase().replace(/[\s\.]/g, '');
+    if (!cleanTerm) return true;
+
+    const nameClean = i.name.toLowerCase().replace(/[\s\.]/g, '');
+    const specClean = (i.spec || "").toLowerCase().replace(/[\s\.]/g, '');
+    const skusArray = Array.from(i.allSkus as Set<string>);
+    const skusClean = skusArray.map((s: string) => s.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
+    const internalClean = Array.from(i.internal_codes as Set<string> || []).map((c: string) => c.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
+    
+    const searchPool = `${nameClean} ${specClean} ${skusClean} ${internalClean}`;
+    return searchPool.includes(cleanTerm);
+  });
 
   return (
     <div className="space-y-4 px-3 pb-24">
@@ -81,18 +99,33 @@ export const StockView = () => {
         </button>
       </motion.div>
 
-      <motion.button
-        whileTap={{ scale: 0.97 }}
-        whileHover={{ scale: 1.01, y: -2 }}
-        onClick={() => setAddOpen(true)}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-black-piano neon-blue-border flex w-full items-center justify-center gap-3 rounded-2xl py-5 text-sm font-black text-primary shadow-glow-cyan border-[3px] border-primary/20 hover:border-primary transition-all"
-      >
-        <Plus className="h-5 w-5" />
-        ADICIONAR NOVO PRODUTO
-      </motion.button>
+      <div className="flex gap-3">
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.01, y: -2 }}
+          onClick={() => setAddOpen(true)}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-black-piano neon-blue-border flex-1 flex items-center justify-center gap-3 rounded-2xl py-5 text-[10px] font-black text-primary shadow-glow-cyan border-[3px] border-primary/20 hover:border-primary transition-all uppercase tracking-widest"
+        >
+          <Plus className="h-5 w-5" />
+          Adicionar Item
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.01, y: -2 }}
+          onClick={() => setInventoryOpen(true)}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.07 }}
+          className="bg-black-piano neon-purple-border flex-1 flex items-center justify-center gap-3 rounded-2xl py-5 text-[10px] font-black text-ai shadow-glow-ai border-[3px] border-ai/20 hover:border-ai transition-all uppercase tracking-widest"
+        >
+          <Package className="h-5 w-5" />
+          Inventário Full
+        </motion.button>
+      </div>
 
       {/* Export Module */}
       <CatalogExport products={filtered} filterQuery={query} />
@@ -138,10 +171,15 @@ export const StockView = () => {
                   <div className="text-base font-black text-white group-hover:text-primary transition-colors tracking-tighter leading-tight line-clamp-2 uppercase">
                     {it.name}
                   </div>
-                  <div className="flex gap-2 mt-1 items-center">
+                  <div className="flex flex-wrap gap-1.5 mt-1 items-center">
                     <span className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-primary">
                       {it.spec}
                     </span>
+                    {Array.from(it.allSkus as Set<string>).map((s: string) => (
+                      <span key={s} className="font-mono-tactical text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/10">
+                        {s}
+                      </span>
+                    ))}
                     {it.internal_code && (
                       <span className="font-mono-tactical text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/5 text-white/60 border border-white/10">
                         #{it.internal_code}
@@ -246,6 +284,10 @@ export const StockView = () => {
       <AIVisionAudit 
         isOpen={auditOpen} 
         onClose={() => setAuditOpen(false)} 
+      />
+      <InventoryModal
+        isOpen={inventoryOpen}
+        onClose={() => setInventoryOpen(false)}
       />
       <CameraView 
         open={camOpen} 
@@ -577,6 +619,7 @@ const ActionSheet = ({ item, onClose, onEdit, onDelete, onCamera }: any) => (
 const EditProductModal = ({ item, onClose }: any) => {
   const { products, updateProductsBulk } = useStore();
   const [name, setName] = useState(item.name);
+  const [spec, setSpec] = useState(item.spec || "Novo");
   const [cost, setCost] = useState(item.cost?.toString() || "0");
   const [sale, setSale] = useState(item.sale?.toString() || "0");
   const [photo, setPhoto] = useState(item.image_url);
@@ -597,6 +640,7 @@ const EditProductModal = ({ item, onClose }: any) => {
       
       const updates = {
         name: name.trim(),
+        spec: spec.trim(),
         cost: Math.max(0, parseFloat(cost) || 0),
         sale: Math.max(0, parseFloat(sale) || 0),
         image_url: photo
@@ -646,13 +690,23 @@ const EditProductModal = ({ item, onClose }: any) => {
             </button>
           </div>
 
-          <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
-            <label className="font-mono-tactical block text-[9px] font-black text-white uppercase mb-2 tracking-widest">NOME DO MODELO</label>
-            <input 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
-              className="w-full bg-transparent font-black text-lg text-white outline-none" 
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
+              <label className="font-mono-tactical block text-[9px] font-black text-white uppercase mb-2 tracking-widest">NOME DO MODELO</label>
+              <input 
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+                className="w-full bg-transparent font-black text-lg text-white outline-none" 
+              />
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 focus-within:ring-primary transition-all">
+              <label className="font-mono-tactical block text-[9px] font-black text-white uppercase mb-2 tracking-widest">ESPECIFICAÇÃO</label>
+              <input 
+                value={spec} 
+                onChange={e => setSpec(e.target.value)} 
+                className="w-full bg-transparent font-black text-lg text-primary outline-none" 
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -756,3 +810,170 @@ const ProductViewModal = ({ item, onClose }: any) => (
     </motion.div>
   </div>
 );
+
+const InventoryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const { catalog, products } = useStore();
+  const [search, setSearch] = useState("");
+
+  const allItems = useMemo(() => {
+    const itemsMap = new Map<string, any>();
+
+    // Helper to generate identity key
+    const getIdentity = (name: string, spec: string) => `${name.trim().toLowerCase()}@@@${(spec || "Geral").trim().toLowerCase()}`;
+
+    // 1. Processar produtos em estoque primeiro (para ter contagem real)
+    products.forEach(p => {
+      const id = getIdentity(p.name, p.spec);
+      if (!itemsMap.has(id)) {
+        itemsMap.set(id, {
+          name: p.name,
+          spec: p.spec,
+          skus: new Set([p.sku]),
+          internal_codes: new Set([p.internal_code]),
+          stockCount: products.filter(p2 => getIdentity(p2.name, p2.spec) === id && p2.status === 'in_stock').length
+        });
+      } else {
+        const item = itemsMap.get(id);
+        if (p.sku) item.skus.add(p.sku);
+        if (p.internal_code) item.internal_codes.add(p.internal_code);
+      }
+    });
+
+    // 2. Mesclar com Catálogo (para itens cadastrados mas sem estoque)
+    catalog.forEach(c => {
+      const id = getIdentity(c.name, c.spec);
+      if (!itemsMap.has(id)) {
+        itemsMap.set(id, {
+          name: c.name,
+          spec: c.spec,
+          skus: new Set([c.sku]),
+          internal_codes: new Set([c.internal_code]),
+          stockCount: 0
+        });
+      } else {
+        const item = itemsMap.get(id);
+        if (c.sku) item.skus.add(c.sku);
+        if (c.internal_code) item.internal_codes.add(c.internal_code);
+      }
+    });
+
+    return Array.from(itemsMap.values())
+      .map(item => ({
+        ...item,
+        skus: Array.from(item.skus).filter(Boolean),
+        internal_codes: Array.from(item.internal_codes).filter(Boolean)
+      }))
+      .sort((a, b) => b.stockCount - a.stockCount);
+  }, [catalog, products]);
+
+  const totalUnique = allItems.length;
+  const totalUnits = products.filter(p => p.status === 'in_stock').length;
+
+  const filtered = allItems.filter(item => {
+    const s = `${item.name} ${item.spec || ""} ${item.sku} ${item.internal_code || ""}`.toLowerCase();
+    return s.includes(search.toLowerCase());
+  });
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black-piano backdrop-blur-3xl overflow-hidden">
+          {/* Header */}
+          <motion.div 
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="p-6 border-b border-white/5"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="font-mono-tactical text-[10px] font-black text-primary tracking-[0.4em] uppercase mb-1">DETALHAMENTO GLOBAL</div>
+                <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Inventário Consolidado</h2>
+              </div>
+              <button 
+                onClick={onClose}
+                className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-danger/20 hover:text-danger transition-all"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                <div className="font-mono-tactical text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">PRODUTOS CADASTRADOS</div>
+                <div className="text-2xl font-black text-white">{totalUnique} <span className="text-[10px] text-primary">TIPOS</span></div>
+              </div>
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                <div className="font-mono-tactical text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">TOTAL DE UNIDADES</div>
+                <div className="text-2xl font-black text-success">{totalUnits} <span className="text-[10px] text-white/40">UN</span></div>
+              </div>
+            </div>
+
+            {/* Internal Search */}
+            <div className="bg-white/5 rounded-xl flex items-center gap-3 px-4 py-3 border border-white/10">
+              <Search className="h-4 w-4 text-white/40" />
+              <input 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filtrar por nome, SKU ou código..."
+                className="bg-transparent flex-1 font-bold text-sm text-white outline-none placeholder:text-white/20"
+              />
+            </div>
+          </motion.div>
+
+          {/* List Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar pb-10">
+            {filtered.map((item, idx) => (
+              <motion.div 
+                key={item.sku}
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: idx * 0.02 }}
+                className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-white/[0.05] transition-all"
+              >
+                <div className="flex-1 min-w-0 pr-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-black text-white truncate uppercase">{item.name}</span>
+                    <span className="text-[9px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase">{item.spec}</span>
+                  </div>
+                  <div className="font-mono-tactical text-[9px] text-white/40 flex flex-wrap gap-x-3 gap-y-1 uppercase tracking-widest">
+                    {item.skus.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.skus.map((sku: string) => (
+                          <span key={sku} className="bg-white/5 px-1.5 py-0.5 rounded border border-white/5">SKU: {sku}</span>
+                        ))}
+                      </div>
+                    )}
+                    {item.internal_codes.length > 0 && (
+                      <div className="flex flex-wrap gap-1 text-primary/60">
+                        {item.internal_codes.map((code: string) => (
+                          <span key={code}>#{code}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className={`text-xl font-black ${item.stockCount > 0 ? 'text-white' : 'text-danger/50'}`}>
+                    {item.stockCount} <span className="text-[9px] text-white/20">UN</span>
+                  </div>
+                  {item.stockCount === 0 && (
+                    <div className="text-[8px] font-black text-danger uppercase tracking-tighter">SEM ESTOQUE</div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+
+            {filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 opacity-20">
+                <Boxes className="h-12 w-12 mb-4" />
+                <p className="font-black text-xs uppercase tracking-widest text-center">Nenhum item encontrado no registro consolidado</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+

@@ -52,24 +52,28 @@ export const AIVisionAudit: React.FC<AIVisionAuditProps> = ({ isOpen, onClose })
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" />
         <Drawer.Content className="bg-[#0f172a] flex flex-col rounded-t-[20px] h-[85vh] mt-24 fixed bottom-0 left-0 right-0 z-50 border-t border-white/10">
-          <div className="p-4 bg-[#0f172a] rounded-t-[20px] flex-1 overflow-y-auto">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/20 mb-8" />
-            
-            <div className="max-w-md mx-auto">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
-                    <Scan className="w-6 h-6 text-cyan-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white leading-tight">Auditoria Visual</h2>
-                    <p className="text-xs text-cyan-400 font-medium tracking-wider uppercase">Oráculo Vision v1.0</p>
-                  </div>
+          {/* Fixed Header */}
+          <div className="p-4 bg-[#0f172a] rounded-t-[20px] border-b border-white/5 shrink-0">
+            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/20 mb-6" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
+                  <Scan className="w-6 h-6 text-cyan-400" />
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5 text-white" />
-                </button>
+                <div>
+                  <h2 className="text-xl font-bold text-white leading-tight">Auditoria Visual</h2>
+                  <p className="text-xs text-cyan-400 font-medium tracking-wider uppercase">Oráculo Vision v1.0</p>
+                </div>
               </div>
+              <button onClick={onClose} className="p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10">
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="p-4 flex-1 overflow-y-auto">
+            <div className="max-w-md mx-auto">
 
               {!capturedImage && !report && (
                 <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">

@@ -20,16 +20,17 @@ import { aiService } from "@/services/aiService";
 import { toast } from "sonner";
 import { AuditHub } from "../AuditHub";
 import { CameraView } from "../CameraView";
-import { AuditVideoScanner } from "../AuditVideoScanner";
+import { useApp } from "@/context/AppContext";
 
 export const AIVisionAuditView = () => {
+  const { setEmployeeTab, setAdminTab, role } = useApp();
   const [auditMode, setAuditMode] = useState<'stock' | 'invoice' | null>(null);
   const [invoiceImage, setInvoiceImage] = useState<string | null>(null);
   const [expectedData, setExpectedData] = useState<{ name: string; qty: number }[]>([]);
   const [identifiedData, setIdentifiedData] = useState<{ name: string; qty: number }[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
   const [showHub, setShowHub] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isCapturingInvoice, setIsCapturingInvoice] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
 
   const [skipInvoice, setSkipInvoice] = useState(false);
@@ -40,16 +41,30 @@ export const AIVisionAuditView = () => {
   const [inputMode, setInputMode] = useState<'photo' | 'scan'>('scan');
   const [isManualMode, setIsManualMode] = useState(false);
   const [lastModel, setLastModel] = useState<string | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
 
   const { products } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   useEffect(() => {
+    // Bloquear scroll do body e forçar viewport tática
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+
     const mainScroll = document.querySelector('.custom-scrollbar');
     if (mainScroll) {
       mainScroll.scrollTo({ top: 0, behavior: 'instant' });
     }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    };
   }, [auditMode, showHub]);
 
   const stopAi = () => {
@@ -116,6 +131,7 @@ export const AIVisionAuditView = () => {
   };
 
   const startScanner = () => {
+    setIsCapturingInvoice(false);
     if (auditMode === 'stock') {
       const currentStockMap = products
         .filter(p => p.status === 'in_stock')
@@ -131,10 +147,34 @@ export const AIVisionAuditView = () => {
       setExpectedData(currentStock as any);
     }
     
-    if (inputMode === 'photo') {
-      setCameraOpen(true);
-    } else {
-      setIsScanning(true);
+    setCameraOpen(true);
+  };
+
+  const handleInvoiceCapture = () => {
+    setIsCapturingInvoice(true);
+    setCameraOpen(true);
+  };
+
+  const handleInvoicePhotoCapture = async (dataUrl: string) => {
+    setCameraOpen(false);
+    setIsCapturingInvoice(false);
+    setLoading(true);
+    setProcessingProgress(0);
+    
+    try {
+      const result = await aiService.extractInvoiceData(dataUrl);
+      if (result.items && result.items.length > 0) {
+        setExpectedData(result.items);
+        setInvoiceImage(dataUrl);
+        setAuditMode('invoice');
+        toast.success("Dados da NF extraídos com sucesso!");
+      } else {
+        toast.error("Não foi possível extrair dados desta NF. Tente novamente ou use o arquivo.");
+      }
+    } catch (err) {
+      toast.error("Erro ao processar imagem da NF.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,27 +186,43 @@ export const AIVisionAuditView = () => {
     });
   };
 
+  const playBeep = async () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.15);
+    } catch (e) { }
+  };
+
   const handleSKUScan = (code: string) => {
-    const currentCount = Array.from(scannedSKUsRef.current).filter(c => c === code).length;
-
-    if (currentCount >= 3) {
-      toast.error("Limite de 3 bipes por item! Ajuste no Hub se necessário.");
-      return;
-    }
-
-    scannedSKUsRef.current.add(code);
+    const now = Date.now();
+    if (now - lastScanTimeRef.current < 2000) return;
+    
+    lastScanTimeRef.current = now;
     setScannedSKUs(prev => [...prev, code]);
 
     toast.success(`Bipe: ${code}`, {
-      duration: 800,
+      duration: 1000,
       position: 'top-center'
     });
 
-    try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-      audio.volume = 0.3;
-      audio.play();
-    } catch (e) { }
+    playBeep();
   };
 
   const handleProcessAudit = async (video?: { data: string; mimeType: string }) => {
@@ -191,7 +247,6 @@ export const AIVisionAuditView = () => {
       setIdentifiedData(manualItems);
       setShowHub(true);
       setCameraOpen(false);
-      setIsScanning(false);
       return;
     }
 
@@ -199,7 +254,6 @@ export const AIVisionAuditView = () => {
     setAbortController(controller);
     setLoading(true);
     setCameraOpen(false);
-    setIsScanning(false);
     setProcessingProgress(0);
     let allIdentified: any[] = [];
 
@@ -288,19 +342,52 @@ export const AIVisionAuditView = () => {
         });
 
         if (unknownSKUs.length > 0) {
-          const resolution = await aiService.resolveSKUs(unknownSKUs, controller.signal);
-          setLastModel(resolution.modelUsed);
-          if (resolution.identified) {
-            const enriched = resolution.identified.map((item: any) => {
-              useStore.getState().addToCatalog({ sku: item.sku, name: item.name });
+          try {
+            const resolution = await aiService.resolveSKUs(unknownSKUs, controller.signal);
+            setLastModel(resolution.modelUsed);
+            
+            const identifiedSkus = new Set((resolution.identified || []).map(i => i.sku));
+            
+            if (resolution.identified) {
+              const enriched = resolution.identified.map((item: any) => {
+                // Salvar no catálogo o que a IA identificou
+                useStore.getState().addToCatalog({ 
+                  sku: item.sku, 
+                  name: item.name
+                });
 
-              return {
-                ...item,
-                qty: skuCounts[item.sku] || 1,
-                name: item.name.toUpperCase()
-              };
+                return {
+                  ...item,
+                  qty: skuCounts[item.sku] || 1,
+                  name: item.name.toUpperCase()
+                };
+              });
+              allIdentified.push(...enriched);
+            }
+
+            // IMPORTANTE: Adicionar os SKUs que a IA NÃO conseguiu identificar
+            // para que apareçam no Hub e o usuário possa "Vincular" manualmente
+            unknownSKUs.forEach(sku => {
+              if (!identifiedSkus.has(sku)) {
+                allIdentified.push({
+                  name: `DIGITAR NOME (${sku})`,
+                  sku,
+                  qty: skuCounts[sku] || 1,
+                  isManual: true
+                });
+              }
             });
-            allIdentified.push(...enriched);
+          } catch (aiError) {
+            console.error("Erro na resolução de IA, revertendo para manual:", aiError);
+            // Em caso de erro na IA, adiciona todos como manuais
+            unknownSKUs.forEach(sku => {
+              allIdentified.push({
+                name: `DIGITAR NOME (${sku})`,
+                sku,
+                qty: skuCounts[sku] || 1,
+                isManual: true
+              });
+            });
           }
         }
 
@@ -328,15 +415,14 @@ export const AIVisionAuditView = () => {
       <AuditHub
         expected={expectedData}
         identified={identifiedData}
-        type={auditMode === 'stock' ? 'stock' : 'invoice'}
+        type={auditMode === 'stock' ? 'stock' : (skipInvoice ? 'receiving' : 'invoice')}
         onClose={() => setShowHub(false)}
       />
     );
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-black relative overflow-hidden">
-      {/* Header Tático - Sticky and Safe-Area Optimized */}
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black overflow-hidden touch-none" style={{ height: '100dvh' }}>
       <div className="sticky top-0 z-30 p-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-4 border-b border-white/5 bg-black/80 backdrop-blur-xl shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -358,6 +444,16 @@ export const AIVisionAuditView = () => {
               </span>
             </div>
           )}
+
+          <button
+            onClick={() => {
+              if (role === 'admin') setAdminTab('dashboard');
+              else setEmployeeTab('scan');
+            }}
+            className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all active:scale-90 ml-2"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
@@ -414,7 +510,12 @@ export const AIVisionAuditView = () => {
             className="space-y-6"
           >
             <button
-              onClick={() => { setAuditMode(null); setInvoiceImage(null); setSkipInvoice(false); }}
+              onClick={() => { 
+                setAuditMode(null); 
+                setInvoiceImage(null); 
+                setSkipInvoice(false); 
+                setExpectedData([]);
+              }}
               className="flex items-center gap-2 text-white hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
             >
               <RotateCcw className="h-4 w-4" /> Alterar Modo
@@ -427,59 +528,78 @@ export const AIVisionAuditView = () => {
                   <p className="text-xs text-white leading-relaxed uppercase font-mono-tactical">Escolha o método de entrada dos dados esperados.</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <motion.button
                     whileTap={{ scale: 0.98 }}
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-black-piano border border-white/10 rounded-3xl p-6 flex items-center gap-4 group relative overflow-hidden text-left"
+                    className="group bg-black-piano border border-white/10 hover:border-primary/40 rounded-xl p-4 flex flex-col items-center gap-3 transition-all relative overflow-hidden"
                   >
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-glow-cyan transition-all shrink-0">
-                      <FileText className="h-6 w-6" />
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <FileText className="w-6 h-6 text-primary shadow-glow-cyan" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Análise em Lote</h3>
-                      <p className="text-[8px] text-white font-mono-tactical uppercase mt-0.5">Fotos de NF</p>
+                    <div className="text-center">
+                      <h3 className="text-sm font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Fotos de NF</h3>
+                      <p className="text-[7px] text-white/40 font-mono-tactical uppercase mt-0.5">Arquivos</p>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
-                    <input type="file" className="hidden" ref={fileInputRef} onChange={handlePhotosUpload} accept="image/*" multiple />
                   </motion.button>
 
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setSkipInvoice(true)}
-                    className="bg-black-piano border border-white/10 rounded-3xl p-6 flex items-center gap-4 group relative overflow-hidden text-left transition-all"
+                    onClick={handleInvoiceCapture}
+                    className="group bg-black-piano border border-white/10 hover:border-primary/40 rounded-xl p-4 flex flex-col items-center gap-3 transition-all relative overflow-hidden"
                   >
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-all shrink-0">
-                      <ImageIcon className="h-6 w-6" />
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Camera className="w-6 h-6 text-primary shadow-glow-cyan" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Sem Nota Fiscal</h3>
-                      <p className="text-[8px] text-white font-mono-tactical uppercase mt-0.5">Identificação Livre</p>
+                    <div className="text-center">
+                      <h3 className="text-sm font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Câmera (NF)</h3>
+                      <p className="text-[7px] text-white/40 font-mono-tactical uppercase mt-0.5">Capturar Papel</p>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
                   </motion.button>
                 </div>
+
+                <input type="file" className="hidden" ref={fileInputRef} onChange={handlePhotosUpload} accept="image/*" multiple />
+
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSkipInvoice(true);
+                    setInputMode('scan');
+                  }}
+                  className="w-full bg-black-piano border border-white/10 rounded-3xl p-6 flex items-center gap-4 group relative overflow-hidden text-left transition-all"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-all shrink-0">
+                    <ImageIcon className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-primary transition-colors">Sem Nota Fiscal</h3>
+                    <p className="text-[8px] text-white font-mono-tactical uppercase mt-0.5">Identificação Livre</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-white group-hover:text-primary transition-all" />
+                </motion.button>
               </div>
             )}
 
             {(auditMode === 'stock' || skipInvoice || (auditMode === 'invoice' && expectedData.length > 0)) && (
               <div className="space-y-8">
-                <div className="bg-black-piano/30 p-2 rounded-[2.5rem] border border-white/5 flex gap-2">
-                  <button
-                    onClick={() => setInputMode('scan')}
-                    className={`flex-1 py-4 rounded-[2rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${inputMode === 'scan' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
-                      }`}
-                  >
-                    <Boxes className="h-4 w-4" /> BIPE
-                  </button>
-                  <button
-                    onClick={() => setInputMode('photo')}
-                    className={`flex-1 py-3 rounded-[1.5rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${inputMode === 'photo' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
-                      }`}
-                  >
-                    <Camera className="h-4 w-4" /> FOTO (IA)
-                  </button>
-                </div>
+                {!skipInvoice && (
+                  <div className="bg-black-piano/30 p-2 rounded-[2.5rem] border border-white/5 flex gap-2">
+                    <button
+                      onClick={() => setInputMode('scan')}
+                      className={`flex-1 py-4 rounded-[2rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${inputMode === 'scan' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
+                        }`}
+                    >
+                      <Boxes className="h-4 w-4" /> BIPE
+                    </button>
+                    <button
+                      onClick={() => setInputMode('photo')}
+                      className={`flex-1 py-3 rounded-[1.5rem] font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${inputMode === 'photo' ? 'bg-primary text-black shadow-glow-cyan' : 'text-white hover:text-white'
+                        }`}
+                    >
+                      <Camera className="h-4 w-4" /> FOTO (IA)
+                    </button>
+                  </div>
+                )}
 
                 <div className="relative group">
                   <div className="relative bg-black-piano rounded-3xl p-6 flex flex-col items-center gap-6 border border-white/10">
@@ -566,10 +686,10 @@ export const AIVisionAuditView = () => {
                   {processingProgress > 0 ? `Processando Lote: ${processingProgress}%` : 'Analisando Evidências'}
                 </div>
                 {lastModel && (
-                  <div className="mt-2 flex items-center justify-center gap-1.5">
-                    <div className="h-1 w-1 rounded-full bg-primary" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-primary">
-                      Engine: {lastModel}
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                    <Zap className="h-3 w-3 text-primary animate-pulse" />
+                    <span className="text-[8px] font-black text-primary uppercase tracking-widest">
+                      {lastModel}
                     </span>
                   </div>
                 )}
@@ -590,23 +710,23 @@ export const AIVisionAuditView = () => {
 
       <CameraView
         open={cameraOpen}
-        onClose={() => { setCameraOpen(false); setCapturedPhotos([]); setScannedSKUs([]); }}
-        mode={inputMode}
-        title={inputMode === 'photo' ? "Auditoria Visual" : "Scanner de SKU"}
-        onCapture={handlePhotoCapture}
-        onScan={handleSKUScan}
-        multiCapture={inputMode === 'photo'}
-        multiScan={inputMode === 'scan'}
-        capturedCount={inputMode === 'photo' ? capturedPhotos.length : scannedSKUs.length}
-        onFinalize={() => handleProcessAudit()}
+        onClose={() => {
+          setCameraOpen(false);
+          setIsCapturingInvoice(false);
+        }}
+        onCapture={isCapturingInvoice ? handleInvoicePhotoCapture : handlePhotoCapture}
+        onScan={!isCapturingInvoice ? handleSKUScan : undefined}
+        mode={isCapturingInvoice ? 'photo' : inputMode}
+        title={isCapturingInvoice ? "CAPTURAR NOTA FISCAL" : (inputMode === 'scan' ? "SCANNER TÁTICO" : "FOTOS PARA AUDITORIA")}
+        multiCapture={!isCapturingInvoice && inputMode === 'photo'}
+        multiScan={!isCapturingInvoice && inputMode === 'scan'}
+        capturedCount={!isCapturingInvoice ? (inputMode === 'photo' ? capturedPhotos.length : scannedSKUs.length) : 0}
+        onFinalize={!isCapturingInvoice ? () => {
+          setCameraOpen(false);
+          handleProcessAudit();
+        } : undefined}
       />
 
-      {isScanning && (
-        <AuditVideoScanner 
-          onComplete={handleProcessAudit}
-          onCancel={() => setIsScanning(false)}
-        />
-      )}
 
       <AnimatePresence>
         {(capturedPhotos.length > 0 || scannedSKUs.length > 0) && (

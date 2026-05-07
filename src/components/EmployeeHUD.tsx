@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanLine, ArrowDownToLine, ArrowUpFromLine, Camera, Hash, Tag, X, Check, Image as ImageIcon, Package, Plus, Minus, Cpu, DollarSign } from "lucide-react";
+import { ScanLine, ArrowDownToLine, ArrowUpFromLine, Camera, Hash, Tag, X, Check, Image as ImageIcon, Package, Plus, Minus, Cpu, DollarSign, Search, Keyboard } from "lucide-react";
 import { CameraView } from "@/components/CameraView";
 import { ManualInputModal } from "@/components/ManualInputModal";
 import { toast } from "sonner";
@@ -20,8 +20,101 @@ export const EmployeeHUD = () => {
   const { currentUser, movements, addMovement, products, addProduct } = useStore();
   const [action, setAction] = useState<Action>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [manualInputOpen, setManualInputOpen] = useState(false);
   const [lastScannedCode, setLastScannedCode] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [manualInputOpen, setManualInputOpen] = useState(false);
+
+  const { catalog } = useStore();
+
+  const filteredCatalog = useMemo(() => {
+    const queryTerms = searchQuery.toLowerCase().split(" ").filter(t => t);
+    const itemsMap = new Map<string, any>();
+
+    // Função para normalizar e criar a chave de identidade
+    const getIdentityKey = (name: string, spec: string) => {
+      const n = (name || "Sem Nome").trim().toLowerCase();
+      const s = (spec || "").trim().toLowerCase();
+      return `${n}@@@${s}`;
+    };
+
+    // 1. Processar Catálogo
+    catalog.forEach(item => {
+      const key = getIdentityKey(item.name, item.spec || "");
+      if (!itemsMap.has(key)) {
+        itemsMap.set(key, {
+          name: item.name,
+          spec: item.spec,
+          skus: new Set([item.sku]),
+          internal_codes: new Set(item.internal_code ? [item.internal_code] : []),
+          image_url: item.image_url,
+          cost: item.cost,
+          sale: item.sale
+        });
+      } else {
+        const existing = itemsMap.get(key);
+        existing.skus.add(item.sku);
+        if (item.internal_code) existing.internal_codes.add(item.internal_code);
+        if (!existing.image_url && item.image_url) existing.image_url = item.image_url;
+      }
+    });
+
+    // 2. Processar Produtos no Estoque (para SKUs não catalogados)
+    products.forEach(p => {
+      if (p.status !== 'in_stock') return;
+      const key = getIdentityKey(p.name, p.spec || "");
+      if (!itemsMap.has(key)) {
+        itemsMap.set(key, {
+          name: p.name,
+          spec: p.spec,
+          skus: new Set(p.sku ? [p.sku] : []),
+          internal_codes: new Set(p.internal_code ? [p.internal_code] : []),
+          image_url: p.image_url,
+          cost: p.cost,
+          sale: p.sale
+        });
+      } else {
+        const existing = itemsMap.get(key);
+        if (p.sku) existing.skus.add(p.sku);
+        if (p.internal_code) existing.internal_codes.add(p.internal_code);
+      }
+    });
+
+    return Array.from(itemsMap.values())
+      .map(item => {
+        const skusArray = Array.from(item.skus as Set<string>);
+        
+        // Calcular estoque individual por SKU
+        const skusWithStock = skusArray.map(s => ({
+          sku: s,
+          stock: products.filter(p => p.sku === s && p.status === 'in_stock').length
+        }));
+
+        // Estoque total (soma de todos os SKUs)
+        const totalStock = skusWithStock.reduce((acc, curr) => acc + curr.stock, 0);
+
+        return {
+          ...item,
+          sku: skusArray[0] || "", 
+          allSkus: skusArray,
+          skusWithStock,
+          stockCount: totalStock
+        };
+      })
+      .filter(item => {
+        const cleanTerm = searchQuery.toLowerCase().replace(/[\s\.]/g, '');
+        if (!cleanTerm) return true;
+
+        const nameClean = item.name.toLowerCase().replace(/[\s\.]/g, '');
+        const specClean = (item.spec || "").toLowerCase().replace(/[\s\.]/g, '');
+        const skusClean = item.allSkus.map((s: string) => s.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
+        const internalClean = Array.from(item.internal_codes as Set<string> || []).map((c: string) => c.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
+        
+        const searchPool = `${nameClean} ${specClean} ${skusClean} ${internalClean}`;
+        return searchPool.includes(cleanTerm);
+      })
+      .sort((a, b) => b.stockCount - a.stockCount);
+  }, [searchQuery, catalog, products]);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const myMovementsToday = movements.filter(m => m.operator_id === currentUser?.id && m.timestamp?.startsWith(todayStr));
@@ -182,6 +275,98 @@ export const EmployeeHUD = () => {
           <div className="text-[10px] uppercase tracking-[0.2em] text-white mb-0.5">Turno</div>
           <div className="text-sm font-black text-success text-glow-success animate-pulse">ATIVO</div>
         </div>
+      </motion.div>
+
+      {/* TACTICAL SEARCH ENGINE */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-20"
+      >
+        <div className="bg-black-piano neon-blue-border flex items-center gap-3 rounded-2xl px-4 py-3 transition-all focus-within:shadow-[0_0_20px_rgba(0,163,255,0.2)]">
+          <Search className="h-5 w-5 text-primary/60" />
+          <input
+            type="text"
+            placeholder="BUSCAR PRODUTO (NOME, COR, MODELO)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent font-mono-tactical text-xs font-black uppercase tracking-widest text-white outline-none placeholder:text-white/20"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="text-white/40 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Search Results Dropdown */}
+        <AnimatePresence>
+          {searchQuery.trim().length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="absolute inset-x-0 top-full mt-2 overflow-hidden rounded-2xl border-2 border-white/10 bg-[#0a0a0a]/95 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+            >
+              <div className="max-h-[350px] overflow-y-auto custom-scrollbar p-2 space-y-1">
+                {filteredCatalog.length > 0 ? (
+                  filteredCatalog.map((item) => (
+                    <motion.button
+                      key={item.sku}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setLastScannedCode(item.sku);
+                        setAction("out");
+                        setSearchQuery("");
+                      }}
+                      className="flex w-full items-center justify-between rounded-xl p-3 text-left transition-all hover:bg-white/5 active:bg-white/10 group"
+                    >
+                      <div className="flex-1 min-w-0 pr-4">
+                        <div className="text-[11px] font-black text-white uppercase tracking-tight leading-tight group-hover:text-primary transition-colors">
+                          {item.name}
+                        </div>
+                        <div className="font-mono-tactical mt-0.5 text-[9px] uppercase tracking-widest text-white/40 flex items-center gap-2">
+                          <span className="text-primary/60">{item.spec || "ESPECIFICAÇÃO PADRÃO"}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {item.skusWithStock.map((ss: any) => (
+                            <div 
+                              key={ss.sku} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLastScannedCode(ss.sku);
+                                setAction("out");
+                                setSearchQuery("");
+                              }}
+                              className="flex items-center gap-1.5 bg-white/5 border border-white/5 px-2 py-0.5 rounded-md hover:bg-primary/20 hover:border-primary/40 transition-colors cursor-pointer"
+                            >
+                                <span className="text-[7px] font-black text-white/30 tracking-tight">{ss.sku}</span>
+                                <span className={`text-[8px] font-black ${ss.stock > 0 ? "text-primary" : "text-white/20"}`}>{ss.stock}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className={`font-mono-tactical text-xs font-black px-2 py-0.5 rounded ${
+                          item.stockCount > 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                        }`}>
+                          {item.stockCount} UN
+                        </div>
+                        <div className="text-[7px] font-black text-white/20 uppercase tracking-widest">ESTOQUE</div>
+                      </div>
+                    </motion.button>
+                  ))
+                ) : (
+                  <div className="p-8 text-center">
+                    <div className="font-mono-tactical text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
+                      Nenhum produto localizado
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Scanner viewport — clicking opens REAL camera */}
@@ -365,11 +550,10 @@ export const EmployeeHUD = () => {
         mode="scan"
         onScan={handleScan}
       />
-
       <ManualInputModal 
         open={manualInputOpen} 
         onClose={() => setManualInputOpen(false)} 
-        onConfirm={handleScan} 
+        onConfirm={handleScan}
       />
     </div>
   );
@@ -440,12 +624,12 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 40, opacity: 0, scale: 0.95 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 40, opacity: 0, scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 320, damping: 28 }}
+        initial={{ y: "100%", opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-black-piano relative w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden rounded-t-[2.5rem] border-[3px] sm:rounded-[2.5rem] ${
+        className={`bg-black-piano relative w-full h-full sm:h-[95vh] sm:max-w-md flex flex-col overflow-hidden sm:rounded-[2.5rem] border-x-[3px] border-t-[3px] ${
           isIn ? "neon-green-border shadow-[0_0_50px_rgba(34,197,94,0.3)]" : "neon-red-border shadow-[0_0_50px_rgba(239,68,68,0.3)]"
         }`}
       >

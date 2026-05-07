@@ -21,20 +21,23 @@ import {
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import TacticalSearchHUD from "./TacticalSearchHUD";
 
 interface AuditHubProps {
-  expected: { name: string; qty: number; sku?: string; qr?: string }[];
-  identified: { name: string; qty: number; sku?: string; qr?: string }[];
-  type: 'stock' | 'invoice';
+  expected: { name: string; qty: number; sku?: string; qr?: string; description?: string }[];
+  identified: { name: string; qty: number; sku?: string; qr?: string; description?: string }[];
+  type: 'stock' | 'invoice' | 'receiving';
   onClose: () => void;
 }
 
 export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps) => {
-  const { products, updateProduct } = useStore();
-  const [items, setItems] = useState<any[]>([]);
+  const { products } = useStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [showOnlyIdentified, setShowOnlyIdentified] = useState(type === 'stock');
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+
+  const [localItems, setLocalItems] = useState<any[]>([]);
+  const [isSearchingForItem, setIsSearchingForItem] = useState<number | null>(null);
 
   useEffect(() => {
     // Carregar sessão persistente do dia
@@ -50,6 +53,15 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
       }
     }
 
+    // Mapear estoque atual para visibilidade no recebimento
+    const currentStockMap = products.reduce((acc, p) => {
+      if (p.status === 'in_stock') {
+        const key = p.sku || p.name;
+        acc[key] = (acc[key] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
     // Mesclar listas para comparação
     const allKeys = Array.from(new Set([
       ...expected.map(i => i.sku || i.qr || i.name),
@@ -59,45 +71,47 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
     const merged = allKeys.map(key => {
       const expItem = expected.find(i => (i.sku || i.qr || i.name) === key);
       const ideItem = identified.find(i => (i.sku || i.qr || i.name) === key);
+      const stock = currentStockMap[key as string] || 0;
       
       const exp = expItem?.qty || 0;
       const ide = ideItem?.qty || 0;
       const isAudited = persistedAuditedSkus.includes(key as string);
       
-      // Se já foi auditado e salvo, usamos a lógica de final = expected se bater, ou ide se divergir
-      // Mas para manter a integridade, vamos usar o flag isAudited para o progresso
       return {
         key,
-        name: ideItem?.name || expItem?.name || 'Item não identificado',
+        name: (ideItem?.name || expItem?.name || 'Item não identificado').toUpperCase(),
+        description: expItem?.description || ideItem?.description || '',
         expected: exp,
         identified: ide,
-        final: isAudited ? exp : ide, // Se salvo, assume conferência OK (ou o valor que estava)
+        stock: stock,
+        final: isAudited ? exp : ide, 
         diff: (isAudited ? exp : ide) - exp,
         sku: ideItem?.sku || expItem?.sku || '',
         qr: ideItem?.qr || expItem?.qr || '',
         isAudited: isAudited,
-        isManual: ideItem?.name?.includes('DIGITAR NOME') || (ideItem as any)?.isManual
+        isManual: !expItem && ideItem,
+        isMissing: expItem && !ideItem
       };
     });
 
-    setItems(merged);
-  }, [expected, identified, type]);
+    setLocalItems(merged);
+  }, [expected, identified, type, products]);
 
   // Salvar sempre que a lista de auditados mudar
   useEffect(() => {
-    if (items.length > 0) {
-      const auditedSkus = items.filter(i => i.isAudited).map(i => i.key);
+    if (localItems.length > 0) {
+      const auditedSkus = localItems.filter(i => i.isAudited).map(i => i.key);
       localStorage.setItem(`audit_session_${type}`, JSON.stringify({
         skus: auditedSkus,
         date: new Date().toISOString()
       }));
     }
-  }, [items, type]);
+  }, [localItems, type]);
 
   const handleUpdateName = (index: number, name: string) => {
-    const newItems = [...items];
+    const newItems = [...localItems];
     newItems[index].name = name;
-    setItems(newItems);
+    setLocalItems(newItems);
     
     // Se tiver SKU, já vamos sugerindo a atualização do catálogo (opcional, mas proativo)
     if (newItems[index].sku) {
@@ -106,29 +120,49 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
   };
 
   const handleUpdateFinal = (index: number, val: number) => {
-    const newItems = [...items];
+    const newItems = [...localItems];
     const num = Math.max(0, val);
     newItems[index].final = num;
     newItems[index].diff = num - newItems[index].expected;
-    // Se o usuário ajustou manualmente, marcamos como conferido
+    // Se o usuário ajustou manualmente no hub, marcamos como auditado
     newItems[index].isAudited = true;
-    setItems(newItems);
+    setLocalItems(newItems);
   };
 
   const handleResetAudit = () => {
-    const resetItems = items.map(item => ({ 
+    const resetItems = localItems.map(item => ({ 
       ...item, 
       isAudited: false, 
       final: item.identified, 
       diff: item.identified - item.expected 
     }));
-    setItems(resetItems);
+    setLocalItems(resetItems);
     localStorage.removeItem(`audit_session_${type}`);
     toast.info("Sessão de auditoria reiniciada");
   };
 
+  const handleAssociateProduct = (sku: string) => {
+    if (isSearchingForItem === null) return;
+    const index = isSearchingForItem;
+    const { products, catalog } = useStore.getState();
+    const product = catalog.find(p => p.sku === sku) || products.find(p => p.sku === sku);
+
+    if (product) {
+      const newItems = [...localItems];
+      newItems[index] = {
+        ...newItems[index],
+        name: product.name.toUpperCase(),
+        isManual: false,
+        stock: products.filter(p => p.sku === sku && p.status === 'in_stock').length
+      };
+      setLocalItems(newItems);
+      toast.success(`Vinculado ao produto: ${product.name}`);
+    }
+    setIsSearchingForItem(null);
+  };
+
   const handleSaveItem = async (index: number) => {
-    const item = items[index];
+    const item = localItems[index];
     setIsSyncing(true);
     try {
       // Sincronização Atômica: Se for ajuste de estoque, sincroniza este SKU imediatamente
@@ -136,55 +170,59 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
         await useStore.getState().reconcileStockAudit([item]);
       }
       
-      const newItems = [...items];
+      const newItems = [...localItems];
       newItems[index].isAudited = true;
-      setItems(newItems);
+      setLocalItems(newItems);
       
       // Feedback visual de sucesso
       toast.success(`${item.name} auditado com sucesso!`);
-    } catch (error) {
-      toast.error("Erro ao salvar auditoria do item");
+    } catch (error: any) {
+      console.error("Erro ao salvar item:", error);
+      toast.error(`Erro ao salvar: ${error.message || 'Falha na conexão'}`);
     } finally {
       setIsSyncing(false);
     }
   };
 
   const handleSync = async () => {
-    if (items.length === 0) return;
+    if (localItems.length === 0) return;
     setIsSyncing(true);
     try {
       const { addProduct, currentUser } = useStore.getState();
       
-      if (type === 'invoice') {
+      if (type === 'invoice' || type === 'receiving') {
         // Para conferência de recebimento, adicionamos os produtos novos
-        for (const item of items) {
+        for (const item of localItems) {
           if (item.final > 0) {
             await addProduct({
               name: item.name,
               sku: item.sku || null,
               spec: item.description || null,
-              cost: 0, // Deveria ser preenchido, mas por enquanto 0
+              cost: 0, 
               sale: 0,
               brand: null,
-              category: 'Celulares', // Default
+              category: 'Celulares', 
               image_url: null,
-              imei: '', // Será preenchido depois
+              imei: '', 
               status: 'in_stock',
               quantity: item.final
             });
           }
         }
         // Sincronizar catálogo para todos os itens identificados
-        for (const item of items) {
+        for (const item of localItems) {
           if (item.sku) {
-            await useStore.getState().addToCatalog({ sku: item.sku, name: item.name });
+            await useStore.getState().addToCatalog({ 
+              sku: item.sku, 
+              name: item.name
+            });
           }
         }
         
-        toast.success(`${items.length} itens registrados no estoque!`);
+        toast.success(`${localItems.length} itens registrados no estoque!`);
       } else {
         // Para auditoria de estoque (ajuste), reconcilia o banco com os dados finais
-        await useStore.getState().reconcileStockAudit(items);
+        await useStore.getState().reconcileStockAudit(localItems);
       }
       onClose();
     } catch (err: any) {
@@ -219,7 +257,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
       doc.line(20, y + 2, 190, y + 2);
       y += 10;
 
-      items.forEach(i => {
+      localItems.forEach(i => {
         if (y > 270) {
           doc.addPage();
           y = 20;
@@ -240,10 +278,10 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
   };
 
   const handleExport = () => {
-    const title = "📦 CONFERÊNCIA DE RECEBIMENTO";
+    const title = type === 'stock' ? "📦 AUDITORIA DE ESTOQUE" : "📦 CONFERÊNCIA DE RECEBIMENTO";
     let text = `${title}\n\n`;
     
-    items.forEach(i => {
+    localItems.forEach(i => {
       if (i.final > 0) {
         text += `${i.name}: ${i.final} \n\n`;
       }
@@ -257,7 +295,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-xl h-[100dvh]">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black h-[100dvh] overflow-hidden">
       {/* Header Tático - Sticky and Safe-Area Optimized */}
       <header className="sticky top-0 z-30 bg-black-piano border-b border-white/5 p-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] flex flex-col gap-4 shrink-0">
         <div className="flex items-center justify-between">
@@ -270,7 +308,9 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                 <div className="h-0.5 w-4 bg-primary rounded-full" />
                 <span className="text-[9px] font-black text-primary uppercase tracking-[0.4em]">Audit Intelligence Hub</span>
               </div>
-              <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Revisão Tática</h2>
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">
+                {type === 'stock' ? 'Auditoria' : (type === 'receiving' ? 'Recebimento' : 'Conferência')}
+              </h2>
             </div>
           </div>
           
@@ -294,7 +334,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
         </div>
 
         {/* Progress Bar Tática - HUD Blindado */}
-        {type === 'stock' && (
+        {type === 'stock' ? (
           <div className="bg-black/80 p-5 rounded-3xl border border-white/10 shadow-2xl space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
@@ -306,14 +346,14 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                 <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/5 flex items-center gap-2">
                   <span className="text-[8px] font-bold text-white uppercase">SKUs:</span>
                   <span className="text-xs font-mono-tactical text-primary font-black">
-                    {items.filter(i => i.isAudited).length}/{expected.length}
+                    {localItems.filter(i => i.isAudited).length}/{expected.length}
                   </span>
                 </div>
                 
                 <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/5 flex items-center gap-2">
                   <span className="text-[8px] font-bold text-white uppercase">Eficiência:</span>
                   <span className="text-xs font-black text-primary italic">
-                    {Math.round((items.filter(i => i.isAudited).length / expected.length) * 100)}%
+                    {expected.length > 0 ? Math.round((localItems.filter(i => i.isAudited).length / expected.length) * 100) : 0}%
                   </span>
                 </div>
 
@@ -329,11 +369,25 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
             <div className="h-4 w-full bg-black/40 rounded-full overflow-hidden border border-white/10 p-0.5 relative">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${(items.filter(i => i.isAudited).length / expected.length) * 100}%` }}
+                animate={{ width: `${expected.length > 0 ? (localItems.filter(i => i.isAudited).length / expected.length) * 100 : 0}%` }}
                 className="h-full bg-gradient-to-r from-success via-primary to-cyan-400 rounded-full shadow-[0_0_20px_#00A3FF] relative"
               >
                 <div className="absolute inset-0 bg-white/20 animate-pulse" />
               </motion.div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-black/80 p-5 rounded-3xl border border-white/10 shadow-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-3 w-3 rounded-full bg-success animate-pulse shadow-glow-success" />
+                <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Fluxo de Entrada</span>
+              </div>
+              <div className="px-3 py-1 bg-success/10 rounded-lg border border-success/20">
+                <span className="text-[9px] font-black text-success uppercase">
+                  {type === 'receiving' ? 'MODO LIVRE' : 'CONFERÊNCIA NF'}
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -344,10 +398,25 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
         {/* Sumário de Auditoria */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Itens', val: items.length, icon: Boxes, color: 'text-white' },
-            { label: 'Conformes', val: items.filter(i => i.diff === 0).length, icon: CheckCircle2, color: 'text-success' },
-            { label: 'Divergentes', val: items.filter(i => i.diff !== 0).length, icon: AlertTriangle, color: 'text-rose-500' },
-            { label: 'Esperados', val: items.reduce((acc, i) => acc + i.expected, 0), icon: Info, color: 'text-primary/60' },
+            { label: 'Total Itens', val: localItems.length, icon: Boxes, color: 'text-white' },
+            { 
+              label: type === 'stock' ? 'Conformes' : 'Bipados', 
+              val: type === 'stock' ? localItems.filter(i => i.diff === 0).length : localItems.reduce((acc, i) => acc + i.final, 0), 
+              icon: CheckCircle2, 
+              color: 'text-success' 
+            },
+            { 
+              label: type === 'stock' ? 'Divergentes' : 'Fora da Nota', 
+              val: type === 'stock' ? localItems.filter(i => i.diff !== 0).length : localItems.filter(i => i.isManual).length, 
+              icon: AlertTriangle, 
+              color: type === 'stock' ? 'text-rose-500' : 'text-primary' 
+            },
+            { 
+              label: type === 'stock' ? 'Esperados' : 'Esperados NF', 
+              val: expected.reduce((acc, i) => acc + i.qty, 0), 
+              icon: Info, 
+              color: 'text-white/40' 
+            },
           ].map((stat, i) => (stat && (
             <div key={i} className="bg-black-piano/40 p-5 rounded-3xl border border-white/5 flex flex-col gap-1">
               <div className="flex items-center gap-2 opacity-30 mb-1">
@@ -359,9 +428,20 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
           )))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-40">
           <AnimatePresence>
-            {items.map((item, originalIndex) => {
+            {localItems.length === 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="col-span-full flex flex-col items-center justify-center py-20 opacity-40 border-2 border-dashed border-white/10 rounded-[3rem]"
+              >
+                <Boxes className="h-16 w-16 mb-4 text-primary animate-pulse" />
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-white">Nenhum item detectado</p>
+                <p className="text-[10px] font-mono-tactical uppercase mt-2">O lote de auditoria está vazio.</p>
+              </motion.div>
+            )}
+            {localItems.map((item, originalIndex) => {
               if (showOnlyIdentified && item.identified === 0) return null;
               
               return (
@@ -371,7 +451,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: originalIndex * 0.05 }}
                   className={`bg-black-piano/50 backdrop-blur-md rounded-[2rem] p-5 flex flex-col gap-4 relative overflow-hidden group border ${
-                    item.diff !== 0 ? 'border-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.05)]' : 'border-white/5 hover:border-primary/20'
+                    item.diff !== 0 && type === 'stock' ? 'border-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.05)]' : 'border-white/5 hover:border-primary/20'
                   } transition-all`}
                 >
                   {/* Background Pattern */}
@@ -386,6 +466,14 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                         <span className="text-[10px] font-black text-white uppercase tracking-widest">Produto / Registro</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {item.isManual && (
+                          <button 
+                            onClick={() => setIsSearchingForItem(originalIndex)}
+                            className="px-2 py-1 bg-primary text-black rounded-lg text-[7px] font-black uppercase shadow-glow-cyan z-10 border border-white/20 active:scale-95"
+                          >
+                            Vincular
+                          </button>
+                        )}
                         {item.diff !== 0 && (
                           <button 
                             onClick={() => setSelectedItem(item)}
@@ -423,17 +511,23 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                   {/* Comparativo Tático */}
                   <div className="grid grid-cols-3 gap-2 bg-black/40 rounded-2xl p-3 border border-white/5">
                     <div className="text-center space-y-0.5">
-                      <p className="text-[7px] font-black text-white uppercase tracking-widest">Sistema</p>
-                      <p className="text-sm font-black text-white">{item.expected}</p>
+                      <p className="text-[7px] font-black text-white/40 uppercase tracking-widest">
+                        {type === 'stock' ? 'Sistema' : 'Estoque Atual'}
+                      </p>
+                      <p className="text-sm font-black text-white">{type === 'stock' ? item.expected : item.stock}</p>
                     </div>
                     <div className="text-center space-y-0.5 border-x border-white/5">
-                      <p className="text-[7px] font-black text-primary/40 uppercase tracking-widest">Físico</p>
-                      <p className={`text-sm font-black ${item.diff === 0 ? 'text-primary' : 'text-rose-500'}`}>{item.identified}</p>
+                      <p className="text-[7px] font-black text-primary uppercase tracking-widest">
+                        {type === 'stock' ? 'Físico' : 'Entrada'}
+                      </p>
+                      <p className={`text-sm font-black ${item.diff === 0 && type === 'stock' ? 'text-primary' : 'text-success'}`}>{item.final}</p>
                     </div>
                     <div className="text-center space-y-0.5">
-                      <p className="text-[7px] font-black text-white uppercase tracking-widest">Diferença</p>
-                      <p className={`text-sm font-black ${item.diff === 0 ? 'text-success' : 'text-rose-500'}`}>
-                        {item.diff > 0 ? `+${item.diff}` : item.diff}
+                      <p className="text-[7px] font-black text-white/40 uppercase tracking-widest">
+                        {type === 'stock' ? 'Diferença' : 'Novo Total'}
+                      </p>
+                      <p className={`text-sm font-black ${item.diff === 0 && type === 'stock' ? 'text-success' : 'text-primary'}`}>
+                        {type === 'stock' ? (item.diff > 0 ? `+${item.diff}` : item.diff) : (item.stock + item.final)}
                       </p>
                     </div>
                   </div>
@@ -587,6 +681,12 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
           </motion.div>
         )}
       </AnimatePresence>
+
+      <TacticalSearchHUD 
+        open={isSearchingForItem !== null}
+        onClose={() => setIsSearchingForItem(null)}
+        onSelect={handleAssociateProduct}
+      />
     </div>
   );
 };
