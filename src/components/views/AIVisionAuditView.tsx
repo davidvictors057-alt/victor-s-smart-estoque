@@ -20,6 +20,7 @@ import { aiService } from "@/services/aiService";
 import { toast } from "sonner";
 import { AuditHub } from "../AuditHub";
 import { CameraView } from "../CameraView";
+import { AuditVideoScanner } from "../AuditVideoScanner";
 
 export const AIVisionAuditView = () => {
   const [auditMode, setAuditMode] = useState<'stock' | 'invoice' | null>(null);
@@ -129,7 +130,12 @@ export const AIVisionAuditView = () => {
       const currentStock = Object.values(currentStockMap);
       setExpectedData(currentStock as any);
     }
-    setCameraOpen(true);
+    
+    if (inputMode === 'photo') {
+      setCameraOpen(true);
+    } else {
+      setIsScanning(true);
+    }
   };
 
   const handlePhotoCapture = (dataUrl: string) => {
@@ -163,8 +169,8 @@ export const AIVisionAuditView = () => {
     } catch (e) { }
   };
 
-  const handleProcessAudit = async () => {
-    if (capturedPhotos.length === 0 && scannedSKUs.length === 0) return;
+  const handleProcessAudit = async (video?: { data: string; mimeType: string }) => {
+    if (!video && capturedPhotos.length === 0 && scannedSKUs.length === 0) return;
 
     if (isManualMode) {
       const manualItems = scannedSKUs.length > 0
@@ -185,6 +191,7 @@ export const AIVisionAuditView = () => {
       setIdentifiedData(manualItems);
       setShowHub(true);
       setCameraOpen(false);
+      setIsScanning(false);
       return;
     }
 
@@ -192,11 +199,31 @@ export const AIVisionAuditView = () => {
     setAbortController(controller);
     setLoading(true);
     setCameraOpen(false);
+    setIsScanning(false);
     setProcessingProgress(0);
     let allIdentified: any[] = [];
 
     try {
-      if (capturedPhotos.length > 0) {
+      if (video) {
+        if (video.data === "LOCAL_AUDIT_DATA") {
+          const parsed = JSON.parse(video.mimeType);
+          allIdentified = parsed || [];
+          toast.success("Auditoria Local consolidada!");
+        } else {
+          const type = auditMode === 'stock' ? 'stock' : 'invoice';
+          const result = await aiService.auditMultiModal(video, type, expectedData, controller.signal);
+          setLastModel(result.modelUsed);
+          
+          if (result.identified) {
+             allIdentified = result.identified;
+          } else if (result.text) {
+             const jsonMatch = result.text.match(/\{.*\}/s);
+             const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { identified: [] };
+             allIdentified = parsed.identified || [];
+          }
+          toast.success("Análise de vídeo via Gemini concluída!");
+        }
+      } else if (capturedPhotos.length > 0) {
         const CONCURRENCY_LIMIT = 2;
         const totalItems = capturedPhotos.length + (scannedSKUs.length > 0 ? 1 : 0);
 
@@ -571,8 +598,15 @@ export const AIVisionAuditView = () => {
         multiCapture={inputMode === 'photo'}
         multiScan={inputMode === 'scan'}
         capturedCount={inputMode === 'photo' ? capturedPhotos.length : scannedSKUs.length}
-        onFinalize={handleProcessAudit}
+        onFinalize={() => handleProcessAudit()}
       />
+
+      {isScanning && (
+        <AuditVideoScanner 
+          onComplete={handleProcessAudit}
+          onCancel={() => setIsScanning(false)}
+        />
+      )}
 
       <AnimatePresence>
         {(capturedPhotos.length > 0 || scannedSKUs.length > 0) && (
@@ -609,7 +643,7 @@ export const AIVisionAuditView = () => {
                 </button>
 
                 <button
-                  onClick={handleProcessAudit}
+                  onClick={() => handleProcessAudit()}
                   className="h-11 px-6 rounded-2xl bg-primary text-black font-black text-[10px] shadow-glow-cyan uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 border border-white/20"
                 >
                   <Zap className="h-3.5 w-3.5 fill-current" />

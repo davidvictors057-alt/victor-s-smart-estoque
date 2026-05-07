@@ -805,13 +805,9 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                     <span className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest">Neural Insight</span>
                  </div>
                  <div className="text-[12px] text-white/90 leading-relaxed prose-ai-insight">
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeRaw]}
-                      components={MarkdownComponents as any}
-                    >
-                      {marketInsight}
-                    </ReactMarkdown>
+                  <div className="text-[12px] text-white/90 leading-relaxed whitespace-pre-wrap">
+                    {marketInsight}
+                  </div>
                  </div>
                  <button 
                    onClick={() => setMarketInsight(null)}
