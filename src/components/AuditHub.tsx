@@ -22,10 +22,11 @@ import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import TacticalSearchHUD from "./TacticalSearchHUD";
+import { sortSearchResults } from "@/lib/searchUtils";
 
 interface AuditHubProps {
-  expected: { name: string; qty: number; sku?: string; qr?: string; description?: string }[];
-  identified: { name: string; qty: number; sku?: string; qr?: string; description?: string }[];
+  expected: { name: string; qty: number; sku?: string; qr?: string; spec?: string }[];
+  identified: { name: string; qty: number; sku?: string; qr?: string; spec?: string; isManual?: boolean }[];
   type: 'stock' | 'invoice' | 'receiving';
   onClose: () => void;
 }
@@ -56,21 +57,23 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
     // Mapear estoque atual para visibilidade no recebimento
     const currentStockMap = products.reduce((acc, p) => {
       if (p.status === 'in_stock') {
-        const key = p.sku || p.name;
+        const key = `${p.sku || p.name}-${p.spec || ''}`;
         acc[key] = (acc[key] || 0) + 1;
       }
       return acc;
     }, {} as Record<string, number>);
 
-    // Mesclar listas para comparação
+    // Mesclar listas para comparação usando SKU + Spec (ou Nome + Spec)
     const allKeys = Array.from(new Set([
-      ...expected.map(i => i.sku || i.qr || i.name),
-      ...identified.map(i => i.sku || i.qr || i.name)
+      ...expected.map(i => `${i.sku || i.name}-${i.spec || ''}`),
+      ...identified.map(i => `${i.sku || i.name}-${i.spec || ''}`)
     ]));
 
     const merged = allKeys.map(key => {
-      const expItem = expected.find(i => (i.sku || i.qr || i.name) === key);
-      const ideItem = identified.find(i => (i.sku || i.qr || i.name) === key);
+      const expItem = expected.find(i => `${i.sku || i.name}-${i.spec || ''}` === key);
+      const ideItem = identified.find(i => `${i.sku || i.name}-${i.spec || ''}` === key);
+      
+      // Stock matching by key
       const stock = currentStockMap[key as string] || 0;
       
       const exp = expItem?.qty || 0;
@@ -80,16 +83,16 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
       return {
         key,
         name: (ideItem?.name || expItem?.name || 'Item não identificado').toUpperCase(),
-        description: expItem?.description || ideItem?.description || '',
+        spec: expItem?.spec || ideItem?.spec || '',
         expected: exp,
         identified: ide,
         stock: stock,
-        final: isAudited ? exp : ide, 
-        diff: (isAudited ? exp : ide) - exp,
+        final: (isAudited || ide > 0) ? ide : exp, 
+        diff: ((isAudited || ide > 0) ? ide : exp) - exp,
         sku: ideItem?.sku || expItem?.sku || '',
         qr: ideItem?.qr || expItem?.qr || '',
         isAudited: isAudited,
-        isManual: !expItem && ideItem,
+        isManual: ideItem?.isManual || (!expItem && ideItem),
         isMissing: expItem && !ideItem
       };
     });
@@ -145,18 +148,52 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
     if (isSearchingForItem === null) return;
     const index = isSearchingForItem;
     const { products, catalog } = useStore.getState();
-    const product = catalog.find(p => p.sku === sku) || products.find(p => p.sku === sku);
+    
+    // Preparar lista combinada (mesma lógica do Explorar Catálogo)
+    const inventoryItems = products
+      .filter(p => p.sku)
+      .map(p => ({
+        sku: p.sku!.trim(),
+        name: p.name,
+        spec: p.spec,
+        image_url: p.image_url,
+        cost: p.cost,
+        sale: p.sale,
+        internal_code: p.internal_code,
+        last_updated: p.updated_at
+      }));
+
+    const allItemsMap = new Map<string, any>();
+    inventoryItems.forEach(i => allItemsMap.set(i.sku, i));
+    catalog.forEach(i => allItemsMap.set(i.sku, i));
+
+    const combinedItems = Array.from(allItemsMap.values());
+    
+    // 1. Tentar match exato por SKU
+    let product = allItemsMap.get(sku);
+    
+    // 2. Se não houver match exato, usar o motor de busca inteligente
+    if (!product) {
+      const matched = sortSearchResults(combinedItems, sku);
+      if (matched.length > 0) {
+        product = matched[0];
+      }
+    }
 
     if (product) {
       const newItems = [...localItems];
       newItems[index] = {
         ...newItems[index],
         name: product.name.toUpperCase(),
+        sku: product.sku || sku,
+        spec: product.spec || '',
         isManual: false,
-        stock: products.filter(p => p.sku === sku && p.status === 'in_stock').length
+        stock: products.filter(p => p.sku === (product?.sku || sku) && p.status === 'in_stock').length
       };
       setLocalItems(newItems);
       toast.success(`Vinculado ao produto: ${product.name}`);
+    } else {
+      toast.error("Produto não encontrado no sistema.");
     }
     setIsSearchingForItem(null);
   };
@@ -194,19 +231,18 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
         // Para conferência de recebimento, adicionamos os produtos novos
         for (const item of localItems) {
           if (item.final > 0) {
-            await addProduct({
-              name: item.name,
+            const cleanProduct = {
               sku: item.sku || null,
-              spec: item.description || null,
-              cost: 0, 
-              sale: 0,
+              name: item.name || 'Sem Nome',
+              spec: item.spec || 'Padrão',
               brand: null,
-              category: 'Celulares', 
-              image_url: null,
-              imei: '', 
-              status: 'in_stock',
+              category: 'Geral',
+              cost: 0,
+              sale: 0,
+              status: 'in_stock' as const,
               quantity: item.final
-            });
+            };
+            await addProduct(cleanProduct);
           }
         }
         // Sincronizar catálogo para todos os itens identificados
@@ -465,6 +501,11 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                         <div className={`h-2 w-2 rounded-full ${item.diff === 0 ? 'bg-success' : 'bg-rose-500 animate-pulse'}`} />
                         <span className="text-[10px] font-black text-white uppercase tracking-widest">Produto / Registro</span>
                       </div>
+                      {item.spec && (
+                        <div className="text-[10px] text-white/40 font-medium truncate uppercase">
+                          {item.spec}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         {item.isManual && (
                           <button 

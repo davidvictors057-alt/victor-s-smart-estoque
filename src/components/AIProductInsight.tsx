@@ -44,7 +44,7 @@ export const AIProductInsight: React.FC<AIProductInsightProps> = ({ product, isO
       setInsight(response.text || 'Não foi possível gerar a análise.');
     } catch (error) {
       console.error('Error fetching AI insight:', error);
-      toast.error('Erro ao conectar com o Oráculo.');
+      // Silently fail as per user request to avoid showing error messages
     } finally {
       setIsLoading(false);
     }

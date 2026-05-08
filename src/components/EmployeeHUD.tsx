@@ -395,10 +395,12 @@ export const EmployeeHUD = () => {
           <div className="tactical-corner absolute inset-6 opacity-40 group-hover:opacity-100 transition-opacity" />
           <div className="absolute inset-6 rounded-lg border border-primary/10 group-hover:border-primary/30 transition-colors" />
 
-          <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2">
-            <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-primary/20 group-hover:bg-primary/40 transition-colors" />
-            <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-primary/20 group-hover:bg-primary/40 transition-colors" />
-            <div className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/60 shadow-glow-cyan" />
+          <div className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-[100%]">
+            <div className="absolute left-0 top-0 h-6 w-6 border-l border-t border-primary/60" />
+            <div className="absolute right-0 top-0 h-6 w-6 border-r border-t border-primary/60" />
+            <div className="absolute bottom-0 left-0 h-6 w-6 border-b border-l border-primary/60" />
+            <div className="absolute bottom-0 right-0 h-6 w-6 border-b border-r border-primary/60" />
+            <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/40 shadow-glow-cyan" />
           </div>
 
           <div className="pointer-events-none absolute inset-0 overflow-hidden">

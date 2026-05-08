@@ -10,6 +10,7 @@ import { CatalogExport } from "@/components/CatalogExport";
 import { AIProductInsight } from "@/components/AIProductInsight";
 
 import { imageService } from "@/services/imageService";
+import { sortSearchResults } from "@/lib/searchUtils";
 
 export const StockView = () => {
   const [query, setQuery] = useState("");
@@ -60,21 +61,14 @@ export const StockView = () => {
   }, {} as Record<string, any>);
 
   const items = Object.values(groupedProducts);
-  const searchTerms = query.toLowerCase().trim().split(/\s+/);
-
-  const filtered = items.filter((i: any) => {
-    const cleanTerm = query.toLowerCase().replace(/[\s\.]/g, '');
-    if (!cleanTerm) return true;
-
-    const nameClean = i.name.toLowerCase().replace(/[\s\.]/g, '');
-    const specClean = (i.spec || "").toLowerCase().replace(/[\s\.]/g, '');
-    const skusArray = Array.from(i.allSkus as Set<string>);
-    const skusClean = skusArray.map((s: string) => s.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
-    const internalClean = Array.from(i.internal_codes as Set<string> || []).map((c: string) => c.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
-    
-    const searchPool = `${nameClean} ${specClean} ${skusClean} ${internalClean}`;
-    return searchPool.includes(cleanTerm);
-  });
+  const filtered = useMemo(() => {
+    const searchableItems = items.map(it => ({
+      ...it,
+      sku: it.allSkus,
+      internal_code: it.internal_codes
+    }));
+    return sortSearchResults(searchableItems, query);
+  }, [items, query]);
 
   return (
     <div className="space-y-4 px-3 pb-24">

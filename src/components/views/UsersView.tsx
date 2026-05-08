@@ -25,31 +25,30 @@ export const UsersView = () => {
   const [tempScore, setTempScore] = useState(5.0);
   const [tempShift, setTempShift] = useState('Integral');
 
-  const AVATAR_OPTIONS = (() => {
-    const avatars = [];
-    const skinWhite = 'ffdbb4';
-    const skinPale = 'edb98a';
-    const skinTan = 'f8d25c';
-    const skinBlack = '614335';
-    const skinBrown = 'ae5d29';
-    const hairBlack = '2c1b18';
+  const AVATAR_OPTIONS = [
+    // --- ESTILO MEXICANO / LATINO (Bigodes e Barbas Majestosas) ---
+    { id: 'mex_1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&facialHair=beardMajestic&facialHairColor=2c1b18&skinColor=ae5d29&top=shortWaved' },
+    { id: 'mex_2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hugo&facialHair=moustacheFancy&facialHairColor=2c1b18&skinColor=ae5d29&top=shortFlat' },
+    { id: 'mex_3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mateo&facialHair=beardMedium&facialHairColor=2c1b18&skinColor=f8d25c&top=shaggy' },
+    { id: 'mex_4', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Diego&facialHair=beardLight&facialHairColor=2c1b18&skinColor=ae5d29&top=theCaesar' },
+    { id: 'mex_5', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos&facialHair=moustacheMagnum&facialHairColor=2c1b18&skinColor=ae5d29&top=shortCurly' },
 
-    // Mulheres
-    const wTops = ['straight01', 'straight02', 'curvy', 'bigHair', 'longButNotTooLong', 'bob', 'bun', 'miaWallace'];
-    for (let i = 0; i < 80; i++) {
-      const skin = i % 15 === 0 ? skinBlack : (i % 3 === 0 ? skinTan : skinWhite);
-      avatars.push({ id: `w_${i}`, url: `https://api.dicebear.com/7.x/avataaars/svg?seed=w_${i}&top=${wTops[i % wTops.length]}&hairColor=${hairBlack}&skinColor=${skin}&clothing=overall&clothesColor=262e33` });
-    }
+    // --- ESTILO CORPULENTO / ROBUSTO ---
+    { id: 'big_1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BigGuy1&top=shortFlat&clothing=hoodie&clothesColor=262e33&skinColor=ffdbb4&mouth=smile' },
+    { id: 'big_2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BigGuy2&top=shortWaved&clothing=overall&clothesColor=262e33&skinColor=edb98a&mouth=serious' },
+    { id: 'big_3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BigGuy3&top=shortCurly&clothing=hoodie&clothesColor=3c444d&skinColor=ae5d29&mouth=default' },
+    { id: 'big_4', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BigGuy4&top=shaggy&clothing=overall&clothesColor=262e33&skinColor=ffdbb4&facialHair=beardMajestic' },
 
-    // Homens
-    const mTops = ['shortFlat', 'shortWaved', 'theCaesar', 'shortCurly', 'shaggy', 'frizzle', 'dreads01'];
-    const beards = ['beardLight', 'beardMedium', 'beardMajestic'];
-    for (let i = 0; i < 80; i++) {
-      const skin = i % 15 === 0 ? skinBlack : (i % 3 === 0 ? skinTan : skinWhite);
-      avatars.push({ id: `m_${i}`, url: `https://api.dicebear.com/7.x/avataaars/svg?seed=m_${i}&top=${mTops[i % mTops.length]}&hairColor=${hairBlack}&facialHair=${beards[i % beards.length]}&skinColor=${skin}&clothing=hoodie&clothesColor=262e33` });
-    }
-    return avatars;
-  })();
+    // --- OPERADORES TÁTICOS (Diversos) ---
+    { id: 'op_1', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op1&top=shortFlat&skinColor=614335&clothing=hoodie' },
+    { id: 'op_2', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op2&top=dreads01&skinColor=614335&clothing=overall' },
+    { id: 'op_3', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op3&top=shaggy&skinColor=f8d25c&clothing=hoodie' },
+    { id: 'op_4', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op4&top=bun&skinColor=ffdbb4&clothing=overall' },
+    { id: 'op_5', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op5&top=bob&skinColor=edb98a&clothing=hoodie' },
+    { id: 'op_6', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op6&top=curvy&skinColor=614335&clothing=overall' },
+    { id: 'op_7', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op7&top=miaWallace&skinColor=ffdbb4&clothing=hoodie' },
+    { id: 'op_8', url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Op8&top=straight02&skinColor=ae5d29&clothing=overall' },
+  ];
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

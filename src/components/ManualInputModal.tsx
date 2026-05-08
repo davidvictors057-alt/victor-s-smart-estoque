@@ -42,7 +42,7 @@ export const ManualInputModal = ({ open, onClose, onConfirm }: ManualInputModalP
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex flex-col items-center bg-black/90 backdrop-blur-xl p-6 pt-[10vh] overflow-y-auto"
+          className="fixed inset-0 z-[1100] flex flex-col items-center bg-black/90 backdrop-blur-xl p-6 pt-[10vh] overflow-y-auto"
           style={{ paddingBottom: '80vh' }}
         >
           <motion.form 

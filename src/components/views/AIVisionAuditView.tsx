@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { AuditHub } from "../AuditHub";
 import { CameraView } from "../CameraView";
 import { useApp } from "@/context/AppContext";
+import { sortSearchResults } from "@/lib/searchUtils";
 
 export const AIVisionAuditView = () => {
   const { setEmployeeTab, setAdminTab, role } = useApp();
@@ -135,12 +136,12 @@ export const AIVisionAuditView = () => {
     if (auditMode === 'stock') {
       const currentStockMap = products
         .filter(p => p.status === 'in_stock')
-        .reduce((acc: Record<string, { name: string; qty: number; sku: string | null }>, p) => {
-          const key = p.sku || p.name;
+        .reduce((acc: Record<string, { name: string; qty: number; sku: string | null; spec: string | null }>, p) => {
+          const key = `${p.sku || p.name}-${p.spec || ''}`;
           if (!acc[key]) {
-            acc[key] = { name: p.name, qty: 0, sku: p.sku || null };
+            acc[key] = { name: p.name, qty: 0, sku: p.sku || null, spec: p.spec || null };
           }
-          acc[key].qty += 1;
+          acc[key].qty++;
           return acc;
         }, {});
       const currentStock = Object.values(currentStockMap);
@@ -326,18 +327,32 @@ export const AIVisionAuditView = () => {
           return acc;
         }, {} as Record<string, number>);
 
-        Object.entries(skuCounts).forEach(([sku, qty]) => {
-          const existingProduct = products.find(p => p.sku === sku);
-          const catalogItem = catalog.find(c => c.sku === sku);
+        Object.entries(skuCounts).forEach(([term, qty]) => {
+          let existingProduct = products.find(p => p.sku === term);
+          let catalogItem = catalog.find(c => c.sku === term);
+
+          if (!existingProduct && !catalogItem) {
+            const matchedProducts = sortSearchResults(products, term);
+            if (matchedProducts.length > 0) {
+              existingProduct = matchedProducts[0] as any;
+            } else {
+              const matchedCatalog = sortSearchResults(catalog, term);
+              if (matchedCatalog.length > 0) {
+                catalogItem = matchedCatalog[0] as any;
+              }
+            }
+          }
 
           if (existingProduct || catalogItem) {
+            const matchedItem = existingProduct || catalogItem;
             localItems.push({
-              name: (existingProduct?.name || catalogItem?.name || '').toUpperCase(),
-              sku,
+              name: (matchedItem?.name || '').toUpperCase(),
+              sku: matchedItem?.sku || term,
+              spec: matchedItem?.spec || '',
               qty
             });
           } else {
-            unknownSKUs.push(sku);
+            unknownSKUs.push(term);
           }
         });
 

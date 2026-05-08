@@ -3,6 +3,7 @@ import { X, Search, Edit2, Check, Package, DollarSign, Camera, AlertTriangle, Sc
 import { useState, useEffect } from "react";
 import { useStore, CatalogItem } from "@/store/useStore";
 import { toast } from "sonner";
+import { sortSearchResults } from "@/lib/searchUtils";
 
 interface CatalogAuditHUDProps {
   open: boolean;
@@ -37,29 +38,37 @@ export const CatalogAuditHUD = ({ open, onClose, onScanRequest, onPhotoRequest, 
   useEffect(() => {
     if (sku) {
       const cleanSearch = sku.trim().toUpperCase();
-      // 1. Tentar encontrar no catálogo inteligente (por SKU ou Código Interno)
+      
+      // 1. Tentar encontrar match exato primeiro (Alta Prioridade)
       let item = catalog.find(c => 
         c.sku.trim().toUpperCase() === cleanSearch || 
         (c.internal_code && c.internal_code.trim().toUpperCase() === cleanSearch)
       );
       
-      // 2. Fallback: Tentar encontrar no estoque atual (products) se não estiver no catálogo
+      // 2. Se não houver match exato, usar o motor de busca inteligente (Explorar Catálogo)
       if (!item) {
-        const product = useStore.getState().products.find(p => 
-          p.sku?.trim().toUpperCase() === cleanSearch || 
-          (p.internal_code && p.internal_code.trim().toUpperCase() === cleanSearch)
-        );
-        if (product) {
-          item = {
-            sku: product.sku || cleanSearch,
-            name: product.name,
-            spec: product.spec,
-            image_url: product.image_url,
-            cost: product.cost,
-            sale: product.sale,
-            internal_code: product.internal_code,
-            last_updated: product.updated_at
-          };
+        // Preparar lista combinada (mesma lógica do Explorar Catálogo)
+        const products = useStore.getState().products;
+        const inventoryItems = products
+          .filter(p => p.sku)
+          .map(p => ({
+            sku: p.sku!.trim(),
+            name: p.name,
+            spec: p.spec,
+            image_url: p.image_url,
+            cost: p.cost,
+            sale: p.sale,
+            internal_code: p.internal_code,
+            last_updated: p.updated_at
+          }));
+
+        const allItemsMap = new Map<string, any>();
+        inventoryItems.forEach(i => allItemsMap.set(i.sku, i));
+        catalog.forEach(i => allItemsMap.set(i.sku, i));
+
+        const matched = sortSearchResults(Array.from(allItemsMap.values()), cleanSearch);
+        if (matched.length > 0) {
+          item = matched[0];
         }
       }
 

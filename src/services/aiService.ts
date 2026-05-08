@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"; 
-const FALLBACK_MODEL = "gemini-3-flash-preview"; // Fast and multimodal stable fallback
+const FALLBACK_MODEL = "gemma-3-27b-it"; // Tactical fallback exactly as requested
 const MAX_RETRIES = 2;
 
 class AIService {

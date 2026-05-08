@@ -691,7 +691,7 @@ export const useStore = create<AppState>()(
               category: item.category || null,
               cost: Number(item.cost) || 0,
               sale: Number(item.sale) || 0,
-              status: 'in_stock', // Forçar entrada como 'em estoque' para visibilidade imediata no dashboard
+              status: 'in_stock' as const, // Forçar entrada como 'em estoque' para visibilidade imediata no dashboard
               image_url: item.image_url || null,
               client_id: clientId
             };
@@ -800,20 +800,49 @@ export const useStore = create<AppState>()(
       addProfile: async (newProfile) => {
         try {
           const { data, error } = await supabase.functions.invoke('manage-team', {
-            body: { action: 'create', userData: { ...newProfile, client_id: get().currentUser?.client_id } }
+            body: { 
+              action: 'create', 
+              userData: { 
+                ...newProfile, 
+                client_id: get().currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6' // Default fallback client_id
+              } 
+            }
           });
-          if (error || data?.error) throw error || new Error(data.error);
-          toast.success("Membro adicionado.");
+          
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+
+          toast.success("RECRUTA ADICIONADO", {
+            description: `${newProfile.full_name} agora faz parte do squad.`
+          });
+          
           await get().fetchProfiles();
-        } catch (error) { toast.error("Erro ao adicionar perfil."); }
+        } catch (error: any) { 
+          console.error("Erro ao adicionar perfil:", error);
+          toast.error("FALHA NO RECRUTAMENTO", {
+            description: error.message || "Erro desconhecido na Edge Function."
+          });
+        }
       },
 
       removeProfile: async (id) => {
         try {
-          const { error } = await supabase.from('profiles').delete().eq('id', id);
+          // Usamos a função para deletar tanto o Profile quanto o Auth
+          const { data, error } = await supabase.functions.invoke('manage-team', {
+            body: { action: 'delete', userData: { userId: id } }
+          });
+
           if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+
           set((state) => ({ profiles: state.profiles.filter(p => p.id !== id) }));
-        } catch (error) { console.error(error); }
+          toast.success("MEMBRO REMOVIDO", { description: "Perfil e acesso Auth deletados." });
+        } catch (error: any) { 
+          console.error("Erro ao remover perfil:", error);
+          // Fallback para delete direto no banco se a função falhar (mas não limpa o Auth)
+          await supabase.from('profiles').delete().eq('id', id);
+          set((state) => ({ profiles: state.profiles.filter(p => p.id !== id) }));
+        }
       },
 
       addNotification: async (notif) => {
@@ -914,33 +943,46 @@ export const useStore = create<AppState>()(
         set({ isLoading: true });
         try {
           const currentUser = get().currentUser;
-          const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
           const currentProducts = get().products.filter(p => p.status === 'in_stock');
 
           const toAdd: any[] = [];
           const toDeleteIds: string[] = [];
 
           for (const item of auditItems) {
-            // Só reconcilia se o item foi auditado ou tem identificação
+            // Só reconcilia se o item foi auditado ou teve alteração de quantidade
             if (!item.isAudited && item.identified === 0 && item.final === item.expected) continue;
 
             const sku = item.sku;
+            const name = item.name;
+            const spec = item.spec || item.description || 'Padrão';
             const finalQty = item.final;
             
-            const existingWithSku = currentProducts.filter(p => p.sku === sku);
-            const currentQty = existingWithSku.length;
+            // Match preciso: SKU + Spec (ou Nome + Spec se SKU for nulo)
+            const existingWithMatch = currentProducts.filter(p => {
+              const skuMatch = sku ? p.sku === sku : true;
+              const nameMatch = !sku ? p.name.toUpperCase() === name.toUpperCase() : true;
+              const specMatch = (p.spec || 'Padrão').toLowerCase().trim() === spec.toLowerCase().trim();
+              return skuMatch && nameMatch && specMatch;
+            });
+
+            const currentQty = existingWithMatch.length;
 
             if (finalQty > currentQty) {
               const diff = finalQty - currentQty;
               toAdd.push({
-                ...item,
+                sku: sku,
+                name: name,
+                spec: spec,
                 quantity: diff,
-                category: existingWithSku[0]?.category || 'Celulares',
-                brand: existingWithSku[0]?.brand || null,
+                category: existingWithMatch[0]?.category || 'Celulares',
+                brand: existingWithMatch[0]?.brand || null,
+                image_url: item.image_url || existingWithMatch[0]?.image_url || null,
+                cost: item.cost || existingWithMatch[0]?.cost || 0,
+                sale: item.sale || existingWithMatch[0]?.sale || 0,
               });
             } else if (finalQty < currentQty) {
               const diff = currentQty - finalQty;
-              const ids = existingWithSku.slice(0, diff).map(p => p.id);
+              const ids = existingWithMatch.slice(0, diff).map(p => p.id);
               toDeleteIds.push(...ids);
             }
           }

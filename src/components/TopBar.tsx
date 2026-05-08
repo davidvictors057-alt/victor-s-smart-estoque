@@ -53,9 +53,9 @@ export const TopBar = () => {
             >
               <Bell className={`h-5 w-5 ${unreadCount > 0 ? "text-primary shadow-glow-cyan" : ""}`} />
             </motion.div>
-            
+
             {unreadCount > 0 && (
-              <motion.span 
+              <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[8px] font-black text-white border-2 border-black shadow-[0_0_10px_rgba(239,68,68,1)]"
@@ -72,8 +72,8 @@ export const TopBar = () => {
               if ((window as any).appNavigation) {
                 (window as any).appNavigation.setScreen("splash");
               }
-              toast.success("SESSÃO ENCERRADA", { 
-                description: "Terminal Victor AI desconectado com sucesso." 
+              toast.success("SESSÃO ENCERRADA", {
+                description: "Terminal Victor AI desconectado com sucesso."
               });
             }}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-danger/10 text-danger transition-all hover:bg-danger hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.6)]"

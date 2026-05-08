@@ -1,6 +1,7 @@
 import { useState, useMemo, useLayoutEffect } from "react";
 import { Search, X } from "lucide-react";
 import { useStore } from "@/store/useStore";
+import { sortSearchResults } from "@/lib/searchUtils";
 
 interface TacticalSearchModalProps {
   open: boolean;
@@ -39,89 +40,45 @@ const TacticalSearchHUD = ({ open, onClose, onSelect }: TacticalSearchModalProps
   const results = useMemo(() => {
     if (!query.trim()) return [];
 
-    const searchTerms = query.toLowerCase().split(" ").filter(t => t);
-    const itemsMap = new Map<string, any>();
+    // 1. Preparar itens do inventário (todos, não apenas em estoque)
+    const inventoryItems = products
+      .filter(p => p.sku)
+      .map(p => ({
+        sku: p.sku!.trim(),
+        name: p.name,
+        spec: p.spec,
+        image_url: p.image_url,
+        cost: p.cost,
+        sale: p.sale,
+        internal_code: p.internal_code,
+        last_updated: p.updated_at
+      }));
 
-    const getIdentityKey = (name: string, spec: string) => {
-      const n = (name || "Sem Nome").trim().toLowerCase();
-      const s = (spec || "").trim().toLowerCase();
-      return `${n}@@@${s}`;
-    };
+    // 2. Combinar com o catálogo (Deduplicar por SKU)
+    const allItemsMap = new Map<string, any>();
+    inventoryItems.forEach(item => allItemsMap.set(item.sku, item));
+    catalog.forEach(item => allItemsMap.set(item.sku, item));
 
-    catalog.forEach(item => {
-      const key = getIdentityKey(item.name, item.spec || "");
-      if (!itemsMap.has(key)) {
-        itemsMap.set(key, {
-          name: item.name,
-          spec: item.spec,
-          skus: new Set([item.sku]),
-          internal_codes: new Set(item.internal_code ? [item.internal_code] : []),
-          image_url: item.image_url,
-          cost: item.cost,
-          sale: item.sale
-        });
-      } else {
-        const existing = itemsMap.get(key);
-        existing.skus.add(item.sku);
-        if (item.internal_code) existing.internal_codes.add(item.internal_code);
-        if (!existing.image_url && item.image_url) existing.image_url = item.image_url;
-      }
+    const combinedItems = Array.from(allItemsMap.values()).map(item => {
+      // Calcular estoque atual para feedback visual
+      const stockCount = products.filter(p => 
+        p.sku?.trim() === item.sku.trim() && p.status === 'in_stock'
+      ).length;
+
+      return {
+        ...item,
+        stockCount
+      };
     });
 
-    products.forEach(p => {
-      if (p.status !== 'in_stock') return;
-      const key = getIdentityKey(p.name, p.spec || "");
-      if (!itemsMap.has(key)) {
-        itemsMap.set(key, {
-          name: p.name,
-          spec: p.spec,
-          skus: new Set(p.sku ? [p.sku] : []),
-          internal_codes: new Set(p.internal_code ? [p.internal_code] : []),
-          image_url: p.image_url,
-          cost: p.cost,
-          sale: p.sale
-        });
-      } else {
-        const existing = itemsMap.get(key);
-        if (p.sku) existing.skus.add(p.sku);
-        if (p.internal_code) existing.internal_codes.add(p.internal_code);
-      }
-    });
-
-    return Array.from(itemsMap.values())
-      .map(item => {
-        const skusArray = Array.from(item.skus as Set<string>);
-        const stockCount = products.filter(p => 
-          p.status === 'in_stock' && 
-          (skusArray.includes(p.sku || "") || (p.name === item.name && (p.spec || "") === (item.spec || "")))
-        ).length;
-
-        return {
-          ...item,
-          sku: skusArray[0] || "",
-          allSkus: skusArray,
-          stockCount
-        };
-      })
-      .filter(item => {
-        const cleanTerm = query.toLowerCase().replace(/[\s\.]/g, '');
-        if (!cleanTerm) return true;
-
-        const nameClean = item.name.toLowerCase().replace(/[\s\.]/g, '');
-        const specClean = (item.spec || "").toLowerCase().replace(/[\s\.]/g, '');
-        const skusClean = item.allSkus.map((s: string) => s.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
-        const internalClean = Array.from(item.internal_codes as Set<string> || []).map((c: string) => c.toLowerCase().replace(/[\s\.]/g, '')).join(" ");
-        
-        const searchPool = `${nameClean} ${specClean} ${skusClean} ${internalClean}`;
-        return searchPool.includes(cleanTerm);
-      })
-      .sort((a, b) => b.stockCount - a.stockCount);
+    // 3. Rankear e ordenar
+    return sortSearchResults(combinedItems, query).slice(0, 30);
   }, [query, catalog, products]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] flex flex-col bg-black overscroll-none">
+    <div className="fixed inset-0 z-[1110] flex flex-col bg-black overscroll-none">
       {/* Header Area */}
       <div className="bg-[#050505] border-b border-white/10 px-4 pt-[env(safe-area-inset-top)] pb-2 shrink-0">
         <div className="flex items-center justify-between py-2">
@@ -182,11 +139,14 @@ const TacticalSearchHUD = ({ open, onClose, onSelect }: TacticalSearchModalProps
                       <div className="text-[9px] font-mono-tactical text-primary uppercase bg-primary/5 px-2 py-0.5 rounded border border-primary/20">
                         {item.spec || "PADRÃO"}
                       </div>
-                      {item.allSkus.map((s: string) => (
-                        <div key={s} className="text-[8px] font-mono-tactical text-white/30 bg-white/5 px-1.5 py-0.5 rounded">
-                          {s}
+                      <div className="text-[8px] font-mono-tactical text-white/30 bg-white/5 px-1.5 py-0.5 rounded">
+                        {item.sku}
+                      </div>
+                      {item.internal_code && (
+                        <div className="text-[8px] font-mono-tactical text-white/30 bg-white/5 px-1.5 py-0.5 rounded">
+                          ID: {item.internal_code}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">

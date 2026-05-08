@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X, ScanLine, Zap, RefreshCw, AlertCircle, CheckCircle2, Image as ImageIcon, Hash, Keyboard, Search } from "lucide-react";
 import { ManualInputModal } from "./ManualInputModal";
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { compressImage } from "@/utils/imageProcessor";
 import TacticalSearchHUD from "@/components/TacticalSearchHUD";
 
@@ -68,30 +69,49 @@ export const CameraView = ({
   useEffect(() => {
     if (!open || mode !== "scan") return;
 
-    const codeReader = new BrowserMultiFormatReader();
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.QR_CODE,
+      BarcodeFormat.UPC_A
+    ]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    
+    const codeReader = new BrowserMultiFormatReader(hints);
     let isMounted = true;
+    let lastBeepTime = 0;
 
     const startScanning = async () => {
       try {
-        const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
-        if (videoInputDevices.length === 0) {
-          setError("Nenhuma câmera encontrada.");
-          return;
-        }
+        const constraints = {
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 60 },
+            // Configurações avançadas de foco para sensibilidade máxima
+            advanced: [{ 
+              focusMode: 'continuous',
+              whiteBalanceMode: 'continuous',
+              exposureMode: 'continuous'
+            }]
+          }
+        } as any;
 
-        const backCamera = videoInputDevices.find(device => 
-          device.label.toLowerCase().includes('back') || 
-          device.label.toLowerCase().includes('traseira') ||
-          device.label.toLowerCase().includes('environment')
-        ) || videoInputDevices[0];
-
-        const controls = await codeReader.decodeFromVideoDevice(
-          backCamera.deviceId,
+        const controls = await codeReader.decodeFromConstraints(
+          constraints,
           videoRef.current!,
           (result, err) => {
             if (result && isMounted) {
-              const code = result.getText();
-              handleScan(code);
+              const now = Date.now();
+              // Trava de segurança de 1.5 segundos para agilizar múltiplas leituras
+              if (now - lastBeepTime > 1500) {
+                lastBeepTime = now;
+                const code = result.getText();
+                handleScan(code);
+              }
             }
           }
         );
@@ -99,7 +119,7 @@ export const CameraView = ({
         controlsRef.current = controls;
       } catch (err) {
         console.error("Erro ao iniciar scanner:", err);
-        setError("Erro ao acessar a câmera.");
+        setError("Erro ao acessar a câmera. Verifique as permissões.");
       }
     };
 
@@ -113,7 +133,70 @@ export const CameraView = ({
     };
   }, [open, mode]);
 
+  // Referência persistente para o contexto de áudio
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Solução Mestra 1 & 2: Bip Sintetizado (AudioContext) e Desbloqueio
+  useEffect(() => {
+    if (open && !audioCtxRef.current) {
+      // Cria o contexto de áudio
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        const ctx = new AudioContextClass();
+        
+        // Desbloqueio do canal de som (Safari/Chrome Mobile Policy)
+        // Tocamos um oscilador inaudível no momento que a câmera abre para destravar
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0; // Mudo
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.01);
+        
+        audioCtxRef.current = ctx;
+      }
+    }
+  }, [open]);
+
+  const playBeep = () => {
+    try {
+      // Solução Mestra 3: Vibração Tátil mais forte
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(80); // Aumentado para 80ms para combinar com o som mais agudo
+      }
+
+      // Toca o "Bip de Mercado"
+      if (audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        
+        // Se o navegador suspendeu o contexto, tenta acordar
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        // Configuração Específica: Bip de Caixa de Mercado
+        oscillator.type = 'sine'; // Onda senoidal pura
+        oscillator.frequency.setValueAtTime(2700, ctx.currentTime); // Frequência bem estridente/aguda
+
+        // Envelope de Volume: Começa alto e corta seco (0.15s)
+        gainNode.gain.setValueAtTime(1, ctx.currentTime);
+        gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.15);
+      }
+    } catch (e) { }
+  };
+
   const handleScan = (code: string) => {
+    playBeep(); // Bip imediato dentro da câmera
     setScanFeedback(code);
     onScan?.(code);
 
@@ -186,7 +269,7 @@ export const CameraView = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col bg-black overflow-hidden"
+            className="fixed inset-0 z-[1000] flex flex-col bg-black overflow-hidden"
           >
             {/* Header - Fixed at Top */}
             <div className="glass-panel-strong relative z-[60] flex items-center justify-between px-4 py-3 pt-[env(safe-area-inset-top)]">
@@ -216,13 +299,20 @@ export const CameraView = ({
             {/* Video Container */}
             <div className="relative flex-1 bg-black overflow-hidden flex flex-col">
               {mode === "scan" && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                  <div className="relative h-64 w-64">
-                    <div className="absolute left-0 top-0 h-8 w-8 border-l-4 border-t-4 border-primary/40" />
-                    <div className="absolute right-0 top-0 h-8 w-8 border-r-4 border-t-4 border-primary/40" />
-                    <div className="absolute bottom-0 left-0 h-8 w-8 border-b-4 border-l-4 border-primary/40" />
-                    <div className="absolute bottom-0 right-0 h-8 w-8 border-b-4 border-r-4 border-primary/40" />
-                    <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 animate-scan bg-primary/20" />
+                <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none pb-40">
+                  {/* Tactical Precision Target - Elevated for focus sweet spot */}
+                  <div className="relative h-56 w-56 -translate-y-16">
+                    {/* Corners with Pulse Effect */}
+                    <div className="absolute left-0 top-0 h-10 w-10 border-l-2 border-t-2 border-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)] rounded-tl-xl" />
+                    <div className="absolute right-0 top-0 h-10 w-10 border-r-2 border-t-2 border-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)] rounded-tr-xl" />
+                    <div className="absolute bottom-0 left-0 h-10 w-10 border-b-2 border-l-2 border-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)] rounded-bl-xl" />
+                    <div className="absolute bottom-0 right-0 h-10 w-10 border-b-2 border-r-2 border-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)] rounded-br-xl" />
+                    
+                    {/* Center Point - Minimalist */}
+                    <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-glow-cyan opacity-80" />
+                    
+                    {/* Subtle Outer Frame */}
+                    <div className="absolute inset-0 border border-primary/10 rounded-xl" />
                   </div>
                 </div>
               )}

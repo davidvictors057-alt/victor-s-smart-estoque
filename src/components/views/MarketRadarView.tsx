@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, 
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import { sortSearchResults } from "@/lib/searchUtils";
 
 // Custom components for Markdown to handle semantic colors (Synced with AIView)
 const MarkdownComponents = {
@@ -95,10 +96,9 @@ export const MarketRadarView = () => {
       return acc;
     }, {} as Record<string, any>);
 
-  const filteredItems = Object.values(items).filter(i => 
-    i.name.toLowerCase().includes(query.toLowerCase()) || 
-    (i.sku && i.sku.includes(query))
-  );
+  const filteredItems = useMemo(() => {
+    return sortSearchResults(Object.values(items), query);
+  }, [items, query]);
 
   const handleResearch = async (item: any) => {
     const key = item.sku || item.name;
@@ -152,7 +152,46 @@ export const MarketRadarView = () => {
   };
 
   return (
-    <div className="space-y-6 px-3 pb-32">
+    <div className="relative min-h-[80vh] flex flex-col">
+      {/* Overlay de Construção Ultra-Premium */}
+      <div className="absolute inset-0 z-[100] flex items-start justify-center p-4 pt-12 bg-black/60 backdrop-blur-md rounded-[2.5rem]">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-b from-slate-900 to-black border border-white/10 rounded-[3rem] p-8 max-w-md w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden ring-1 ring-white/5"
+        >
+          <div className="absolute inset-0 tactical-grid opacity-20" />
+          <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/10 rounded-full blur-[80px]" />
+          
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-full aspect-video rounded-2xl overflow-hidden mb-8 border border-white/10 shadow-2xl relative group">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+              <img 
+                src="/assets/manual/protocol_03.png?v=2" 
+                alt="Em Construção" 
+                className="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-[2s]"
+              />
+            </div>
+            
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/20 mb-6 shadow-glow-cyan border border-primary/30">
+              <Target className="h-8 w-8 text-primary animate-pulse" />
+            </div>
+            
+            <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-3 text-glow-cyan leading-[0.9]">
+              Módulo em<br/><span className="text-primary">Calibração</span>
+            </h2>
+            <p className="text-white/70 text-[13px] font-medium leading-relaxed mb-10 px-4">
+              Nossa IA está refinando os algoritmos de busca global para garantir a melhor estratégia de preço.
+            </p>
+            
+            <div className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-white/40 font-black text-[10px] uppercase tracking-[0.3em] backdrop-blur-sm">
+              Sincronização em Curso...
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="space-y-6 px-3 pb-32 opacity-30 pointer-events-none blur-[2px]">
       {/* Header Tático */}
       <section className="bg-black-piano neon-blue-border relative overflow-hidden rounded-[2.5rem] p-8 shadow-2xl">
         <div className="absolute inset-0 tactical-grid opacity-20" />
@@ -310,5 +349,6 @@ export const MarketRadarView = () => {
         })}
       </div>
     </div>
-  );
+  </div>
+);
 };
