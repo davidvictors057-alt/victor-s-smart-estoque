@@ -41,18 +41,6 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
   const [isSearchingForItem, setIsSearchingForItem] = useState<number | null>(null);
 
   useEffect(() => {
-    // Carregar sessão persistente do dia
-    const saved = localStorage.getItem(`audit_session_${type}`);
-    let persistedAuditedSkus: string[] = [];
-    if (saved) {
-      try {
-        const { skus, date } = JSON.parse(saved);
-        const isToday = new Date(date).toDateString() === new Date().toDateString();
-        if (isToday) persistedAuditedSkus = skus;
-      } catch (e) {
-        console.error("Erro ao carregar auditoria persistente");
-      }
-    }
 
     // Mapear estoque atual para visibilidade no recebimento
     const currentStockMap = products.reduce((acc, p) => {
@@ -78,7 +66,7 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
       
       const exp = expItem?.qty || 0;
       const ide = ideItem?.qty || 0;
-      const isAudited = persistedAuditedSkus.includes(key as string);
+      const finalQty = ide > 0 ? ide : exp;
       
       return {
         key,
@@ -87,29 +75,20 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
         expected: exp,
         identified: ide,
         stock: stock,
-        final: (isAudited || ide > 0) ? ide : exp, 
-        diff: ((isAudited || ide > 0) ? ide : exp) - exp,
+        final: finalQty, 
+        diff: finalQty - exp,
         sku: ideItem?.sku || expItem?.sku || '',
         qr: ideItem?.qr || expItem?.qr || '',
-        isAudited: isAudited,
+        isAudited: false,
+        isLocked: false,
         isManual: ideItem?.isManual || (!expItem && ideItem),
         isMissing: expItem && !ideItem
       };
     });
 
     setLocalItems(merged);
-  }, [expected, identified, type, products]);
-
-  // Salvar sempre que a lista de auditados mudar
-  useEffect(() => {
-    if (localItems.length > 0) {
-      const auditedSkus = localItems.filter(i => i.isAudited).map(i => i.key);
-      localStorage.setItem(`audit_session_${type}`, JSON.stringify({
-        skus: auditedSkus,
-        date: new Date().toISOString()
-      }));
-    }
-  }, [localItems, type]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expected, identified, type]);
 
   const handleUpdateName = (index: number, name: string) => {
     const newItems = [...localItems];
@@ -133,14 +112,16 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
   };
 
   const handleResetAudit = () => {
-    const resetItems = localItems.map(item => ({ 
-      ...item, 
-      isAudited: false, 
-      final: item.identified, 
-      diff: item.identified - item.expected 
-    }));
+    const resetItems = localItems.map(item => {
+      if (item.isLocked) return item;
+      return { 
+        ...item, 
+        isAudited: false, 
+        final: item.identified, 
+        diff: item.identified - item.expected 
+      };
+    });
     setLocalItems(resetItems);
-    localStorage.removeItem(`audit_session_${type}`);
     toast.info("Sessão de auditoria reiniciada");
   };
 
@@ -200,19 +181,19 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
 
   const handleSaveItem = async (index: number) => {
     const item = localItems[index];
+    if (item.isLocked) return;
     setIsSyncing(true);
     try {
-      // Sincronização Atômica: Se for ajuste de estoque, sincroniza este SKU imediatamente
       if (type === 'stock') {
         await useStore.getState().reconcileStockAudit([item]);
       }
       
       const newItems = [...localItems];
       newItems[index].isAudited = true;
+      newItems[index].isLocked = true;
       setLocalItems(newItems);
       
-      // Feedback visual de sucesso
-      toast.success(`${item.name} auditado com sucesso!`);
+      toast.success(`${item.name} salvo no banco!`);
     } catch (error: any) {
       console.error("Erro ao salvar item:", error);
       toast.error(`Erro ao salvar: ${error.message || 'Falha na conexão'}`);
@@ -223,43 +204,49 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
 
   const handleSync = async () => {
     if (localItems.length === 0) return;
+
+    if (type === 'stock') {
+      // Modo Estoque: CONCLUIR apenas fecha. O OK já salvou cada item.
+      const pendingItems = localItems.filter(i => !i.isLocked && i.identified > 0);
+      if (pendingItems.length > 0) {
+        toast.warning(`${pendingItems.length} item(ns) bipados ainda não foram salvos. Clique OK em cada um antes de fechar.`, { duration: 4000 });
+        return;
+      }
+      onClose();
+      return;
+    }
+
+    // Fluxo de Recebimento/NF permanece inalterado
     setIsSyncing(true);
     try {
-      const { addProduct, currentUser } = useStore.getState();
+      const { addProduct } = useStore.getState();
       
-      if (type === 'invoice' || type === 'receiving') {
-        // Para conferência de recebimento, adicionamos os produtos novos
-        for (const item of localItems) {
-          if (item.final > 0) {
-            const cleanProduct = {
-              sku: item.sku || null,
-              name: item.name || 'Sem Nome',
-              spec: item.spec || 'Padrão',
-              brand: null,
-              category: 'Geral',
-              cost: 0,
-              sale: 0,
-              status: 'in_stock' as const,
-              quantity: item.final
-            };
-            await addProduct(cleanProduct);
-          }
+      for (const item of localItems) {
+        if (item.final > 0) {
+          const cleanProduct = {
+            sku: item.sku || null,
+            name: item.name || 'Sem Nome',
+            spec: item.spec || 'Padrão',
+            brand: null,
+            category: 'Geral',
+            cost: 0,
+            sale: 0,
+            status: 'in_stock' as const,
+            quantity: item.final
+          };
+          await addProduct(cleanProduct);
         }
-        // Sincronizar catálogo para todos os itens identificados
-        for (const item of localItems) {
-          if (item.sku) {
-            await useStore.getState().addToCatalog({ 
-              sku: item.sku, 
-              name: item.name
-            });
-          }
-        }
-        
-        toast.success(`${localItems.length} itens registrados no estoque!`);
-      } else {
-        // Para auditoria de estoque (ajuste), reconcilia o banco com os dados finais
-        await useStore.getState().reconcileStockAudit(localItems);
       }
+      for (const item of localItems) {
+        if (item.sku) {
+          await useStore.getState().addToCatalog({ 
+            sku: item.sku, 
+            name: item.name
+          });
+        }
+      }
+      
+      toast.success(`${localItems.length} itens registrados no estoque!`);
       onClose();
     } catch (err: any) {
       toast.error(`Erro ao sincronizar: ${err.message}`);
@@ -507,7 +494,20 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                         </div>
                       )}
                       <div className="flex items-center gap-2">
-                        {item.isManual && (
+                        {!item.isLocked && (
+                          <button 
+                            onClick={() => {
+                              const newItems = localItems.filter((_, i) => i !== originalIndex);
+                              setLocalItems(newItems);
+                              toast.info(`${item.name} removido da sessão.`);
+                            }}
+                            className="h-7 w-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/20 transition-all active:scale-90 z-10"
+                            title="Remover item"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {item.isManual && !item.isLocked && (
                           <button 
                             onClick={() => setIsSearchingForItem(originalIndex)}
                             className="px-2 py-1 bg-primary text-black rounded-lg text-[7px] font-black uppercase shadow-glow-cyan z-10 border border-white/20 active:scale-95"
@@ -536,8 +536,9 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                         value={item.name}
                         onChange={(e) => handleUpdateName(originalIndex, e.target.value)}
                         rows={1}
+                        disabled={item.isLocked}
                         className={`w-full bg-black/40 border-2 rounded-xl p-3 text-xs font-black text-white focus:ring-4 focus:ring-primary/20 outline-none resize-none transition-all ${
-                          item.isManual ? 'border-rose-500/40 shadow-glow-danger/20' : 'border-white/5 group-hover:border-primary/30'
+                          item.isLocked ? 'opacity-60 cursor-not-allowed border-success/20' : item.isManual ? 'border-rose-500/40 shadow-glow-danger/20' : 'border-white/5 group-hover:border-primary/30'
                         }`}
                         placeholder="Identificando nome do produto..."
                       />
@@ -577,32 +578,43 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => handleUpdateFinal(originalIndex, item.final - 1)}
-                      className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-all active:scale-90 border border-white/10"
+                      disabled={item.isLocked}
+                      className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border ${
+                        item.isLocked ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-white/5 text-white hover:text-white hover:bg-white/10 active:scale-90 border-white/10'
+                      }`}
                     >
                       <Minus className="h-4 w-4" />
                     </button>
                     
-                    <div className="flex-1 h-10 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between px-4">
-                      <span className="text-[8px] font-black text-primary/40 uppercase tracking-widest">QTD</span>
-                      <span className="text-sm font-black text-primary">{item.final}</span>
+                    <div className={`flex-1 h-10 rounded-xl flex items-center justify-between px-4 border ${
+                      item.isLocked ? 'bg-success/5 border-success/20' : 'bg-primary/5 border-primary/20'
+                    }`}>
+                      <span className={`text-[8px] font-black uppercase tracking-widest ${
+                        item.isLocked ? 'text-success/40' : 'text-primary/40'
+                      }`}>{item.isLocked ? 'SALVO' : 'QTD'}</span>
+                      <span className={`text-sm font-black ${item.isLocked ? 'text-success' : 'text-primary'}`}>{item.final}</span>
                     </div>
 
                     <button 
                       onClick={() => handleUpdateFinal(originalIndex, item.final + 1)}
-                      className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary/60 hover:text-primary hover:bg-primary/20 transition-all active:scale-90 border border-primary/20 shadow-glow-cyan/10"
+                      disabled={item.isLocked}
+                      className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border ${
+                        item.isLocked ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-primary/10 text-primary/60 hover:text-primary hover:bg-primary/20 active:scale-90 border-primary/20 shadow-glow-cyan/10'
+                      }`}
                     >
                       <Plus className="h-4 w-4" />
                     </button>
 
                     <button 
                       onClick={() => handleSaveItem(originalIndex)}
+                      disabled={item.isLocked || isSyncing}
                       className={`px-4 h-10 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all border ${
-                        item.isAudited 
+                        item.isLocked 
                         ? 'bg-success/20 text-success border-success/30 cursor-default' 
                         : 'bg-primary text-black border-primary shadow-glow-cyan hover:scale-105 active:scale-95'
                       }`}
                     >
-                      {item.isAudited ? "OK" : "SALVAR"}
+                      {item.isLocked ? 'OK ✓' : 'SALVAR'}
                     </button>
                   </div>
                 </motion.div>
@@ -619,10 +631,14 @@ export const AuditHub = ({ expected, identified, type, onClose }: AuditHubProps)
           <button 
             onClick={handleSync}
             disabled={isSyncing}
-            className="flex-1 h-14 rounded-2xl bg-success text-black font-black shadow-glow-green hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 transition-all uppercase text-[11px] tracking-widest disabled:opacity-50 border-2 border-white/20"
+            className={`flex-1 h-14 rounded-2xl font-black hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 transition-all uppercase text-[11px] tracking-widest disabled:opacity-50 border-2 ${
+              type === 'stock' 
+                ? 'bg-white/10 text-white border-white/20 hover:bg-white/20' 
+                : 'bg-success text-black shadow-glow-green border-white/20'
+            }`}
           >
-            {isSyncing ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
-            <span>CONCLUIR</span>
+            {isSyncing ? <RefreshCcw className="h-5 w-5 animate-spin" /> : (type === 'stock' ? <X className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />)}
+            <span>{type === 'stock' ? 'FECHAR SESSÃO' : 'CONCLUIR'}</span>
           </button>
           
           <div className="flex items-center gap-2">
