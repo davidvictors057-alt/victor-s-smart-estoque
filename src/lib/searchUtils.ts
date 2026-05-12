@@ -19,8 +19,8 @@ export function rankSearchItem(item: SearchableItem, term: string): number {
   const getArray = (val: any): string[] => {
     if (!val) return [];
     if (typeof val === 'string') return [val.toLowerCase()];
-    if (Array.isArray(val)) return val.filter(v => v != null).map(v => String(v).toLowerCase());
-    if (val instanceof Set) return Array.from(val).filter(v => v != null).map((v: any) => String(v).toLowerCase());
+    if (Array.isArray(val)) return val.filter(v => v != null).map(v => String(v).trim().toLowerCase());
+    if (val instanceof Set) return Array.from(val).filter(v => v != null).map((v: any) => String(v).trim().toLowerCase());
     return [];
   };
 

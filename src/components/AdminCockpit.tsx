@@ -42,7 +42,7 @@ import { CameraView } from "./CameraView";
 import { AIProductInsight } from './AIProductInsight';
 import { PredictiveShoppingList } from './PredictiveShoppingList';
 import { Button } from "./ui/button";
-import { useStore } from "@/store/useStore";
+import { useStore, type Product } from "@/store/useStore";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -86,6 +86,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
     fetchAll, 
     getChartData,
     lastAiAnalysis,
+    lastAiAnalysisModel,
     isAiLoading,
     onlineBrainMode,
     runPredictiveAnalysis,
@@ -101,18 +102,38 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const [marketInsight, setMarketInsight] = useState<string | null>(null);
   const [isMarketAiLoading, setIsMarketAiLoading] = useState(false);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
-  const vibrantColors = ['#22c55e', '#ff4444', '#facc15', '#f97316', '#00ffff', '#00a3ff', '#ec4899'];
+  const vibrantColors = ['#22c55e', '#ff4444', '#facc15', '#f97316', '#00ffff', '#00a3ff', '#ec4899', '#8b5cf6', '#f43f5e', '#10b981'];
 
   const runMarketAnalysis = async () => {
     setIsMarketAiLoading(true);
     try {
-      const distribution = Object.entries(brandCounts)
-        .map(([brand, count]) => `${brand}: ${count} unidades`)
+      const distribution = radarData
+        .map((d) => `${d.brand}: ${d.units} unidades`)
         .join(', ');
       
-      const prompt = `Analise a distribuição de mercado do meu estoque: ${distribution}. 
-      Quais marcas dominam? Existe risco de concentração? Qual a recomendação estratégica para diversificação? 
-      Responda em tom tático, use emojis e tags <warn> ou <price> se necessário.`;
+      const prompt = `Gere um RELATÓRIO TÁTICO EXECUTIVO (HUD STYLE) baseado nesta distribuição de estoque: ${distribution}. 
+      
+      ESTRUTURA OBRIGATÓRIA:
+      # 📊 PANORAMA GERAL
+      (Resumo rápido do estado atual)
+      
+      # 🎯 MARCAS DOMINANTES
+      (Análise de quem manda no estoque agora)
+      
+      # ⚠️ RISCOS E OPORTUNIDADES
+      (Alertas de concentração ou falta de produtos)
+      
+      # 💡 RECOMENDAÇÃO TÁTICA
+      (O que fazer agora para lucrar mais)
+
+      REGRAS CRÍTICAS:
+      - INICIE DIRETAMENTE NO TÍTULO # 📊 PANORAMA GERAL.
+      - NÃO use introduções como "Aqui está o relatório" ou "Com certeza".
+      - Use tons profissionais e táticos.
+      - Use emojis para facilitar a leitura.
+      - Use <warn> para alertas e <price> para valores.
+      - NÃO use códigos de máquina ou IDs internos.
+      - Texto 100% limpo e direto ao ponto.`;
       
       const response = await aiService.chat(prompt);
       setMarketInsight(response.text);
@@ -146,19 +167,66 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
     setTimeout(() => setIsRefreshing(false), 1000);
   };
   
-  // Calculate Radar Data from real products (ONLY IN STOCK)
+  // 🧠 INTELLIGENT MARKET SHARE LOGIC (9+1 Sectors)
+  const getBrandSector = (p: Product) => {
+    const brandField = (p.brand || "").toUpperCase();
+    const name = p.name.toUpperCase();
+    
+    if (brandField.includes('XIAOMI') || name.includes('XIAOMI') || name.includes('REDMI') || name.includes('POCO')) return 'XIAOMI';
+    if (brandField.includes('APPLE') || name.includes('APPLE') || name.includes('IPHONE')) return 'APPLE';
+    if (brandField.includes('SAMSUNG') || name.includes('SAMSUNG') || name.includes('GALAXY')) return 'SAMSUNG';
+    if (brandField.includes('REALME') || name.includes('REALME')) return 'REALME';
+    if (brandField.includes('MOTOROLA') || name.includes('MOTO ')) return 'MOTOROLA';
+    if (brandField.includes('ITEL') || name.includes('ITEL')) return 'ITEL';
+    if (brandField.includes('MULTI') || name.includes('MULTI')) return 'MULTILASER';
+    
+    if (brandField && brandField !== 'GERAL' && brandField !== 'OUTROS') return brandField;
+    const firstWord = name.split(' ')[0];
+    return firstWord.length > 2 ? firstWord : 'OUTROS';
+  };
+
+  const fifteenDaysAgo = new Date(Date.now() - (15 * 24 * 60 * 60 * 1000));
+  const recentSales = movements.filter(m => m.type === 'out' && new Date(m.timestamp) > fifteenDaysAgo);
+
   const inStockProducts = products.filter(p => p.status === 'in_stock');
   
-  const brandCounts = inStockProducts.reduce((acc: Record<string, number>, p) => {
-    const brand = p.brand || "Outros";
-    acc[brand] = (acc[brand] || 0) + 1;
+  // Calculate metrics per sector
+  const sectorMetrics = inStockProducts.reduce((acc: Record<string, { units: number, stockValue: number, salesValue: number }>, p) => {
+    const sector = getBrandSector(p);
+    if (!acc[sector]) acc[sector] = { units: 0, stockValue: 0, salesValue: 0 };
+    acc[sector].units += 1;
+    acc[sector].stockValue += (p.cost || 0);
     return acc;
   }, {});
 
-  const radarData = Object.entries(brandCounts)
-    .map(([brand, units]) => ({ brand, units }))
-    .sort((a, b) => b.units - a.units)
-    .slice(0, 6);
+  // Add sales value to metrics
+  recentSales.forEach(m => {
+    const p = m.product;
+    if (p) {
+      const sector = getBrandSector(p);
+      if (sectorMetrics[sector]) {
+        sectorMetrics[sector].salesValue += (p.cost || 0);
+      }
+    }
+  });
+
+  // Calculate Power Index and Sort
+  const allSectors = Object.entries(sectorMetrics).map(([brand, metrics]) => ({
+    brand,
+    units: metrics.units,
+    score: metrics.stockValue + (metrics.salesValue * 2) // Weighted Power Index
+  })).sort((a, b) => b.score - a.score);
+
+  // 9+1 Logic: Top 9 + Others
+  const top9 = allSectors.filter(s => s.brand !== 'OUTROS').slice(0, 9);
+  const othersData = allSectors.filter(s => s.brand === 'OUTROS' || !top9.find(t => t.brand === s.brand));
+  
+  const totalOthersUnits = othersData.reduce((sum, s) => sum + s.units, 0);
+  
+  const radarData = [
+    ...top9,
+    { brand: 'OUTROS', units: totalOthersUnits, score: 0 }
+  ].filter(s => s.units > 0);
   
   // Total value in stock (ONLY IN STOCK)
   const totalPatrimony = inStockProducts.reduce((sum, p) => sum + (p.cost || 0), 0);
@@ -277,11 +345,11 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           >
             <ArrowLeftRight className="h-5 w-5 rotate-90" />
           </button>
-          <div className="font-mono-tactical text-right hidden sm:block">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white">Sync Status</div>
+          <div className="font-mono-tactical text-right hidden sm:block bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 shadow-inner">
+            <div className="text-[9px] uppercase tracking-[0.3em] text-white/40 mb-0.5">Integridade do Sistema</div>
             <div className="text-sm font-black text-success text-glow-success flex items-center gap-2 justify-end">
-              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              LIVE · {integrity.toFixed(1)}%
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+              {integrity.toFixed(1)}%
             </div>
           </div>
         </div>
@@ -425,7 +493,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             <div className="space-y-3">
               {ruptureItems.slice(0, 3).map(name => (
                   <div key={name} className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
-                    <span className="text-sm font-bold text-white">{name}</span>
+                    <span className="text-sm font-bold text-white">{name.replace(/<.*?>/g, '')}</span>
                     <Button 
                       size="sm" 
                       className="bg-success hover:bg-success/80 h-7 text-[9px] font-black rounded-lg"
@@ -482,49 +550,53 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
 
         {lastAiAnalysis && (
            <motion.div 
-             initial={{ opacity: 0, y: 10 }}
+             initial={{ opacity: 0, y: 15 }}
              animate={{ opacity: 1, y: 0 }}
-             className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6"
+             className="mt-8"
            >
-              {String(lastAiAnalysis).split(/(?=### )/g).filter(s => s.trim().length > 0).map((content, idx) => {
-                const lines = content.trim().split('\n');
-                const rawTitle = lines[0] || '';
-                const title = rawTitle.replace(/^###\s+/, '').replace(/\*\*/g, '');
-                const body = lines.slice(1).join('\n').trim() || content.trim();
-                const finalBody = body.startsWith('###') ? body.replace(/^###\s+.*?\n/, '') : body;
+              <div className="neon-purple-border rounded-[2rem] p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden group">
+                 {/* Background Glow */}
+                 <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-ai/10 blur-[100px] pointer-events-none" />
+                 
+                 <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+                    <div className="flex items-center gap-4">
+                       <div className="h-10 w-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                          <Zap className="h-5 w-5" />
+                       </div>
+                       <div>
+                          <h4 className="text-sm font-black text-white uppercase tracking-widest text-glow-purple">Relatório de Inteligência Preditiva</h4>
+                          <p className="text-[10px] text-purple-400/60 font-bold uppercase tracking-tighter">Protocolo Nexus Oracle v3.1</p>
+                       </div>
+                    </div>
+                    <div className="font-mono-tactical text-[9px] text-white/30 font-black uppercase tracking-widest hidden sm:block">
+                       MODEL: {lastAiAnalysisModel}
+                    </div>
+                 </div>
 
-                return (
-                  <div key={idx} className="bg-white/[0.03] border border-white/10 rounded-[1.5rem] p-6 group hover:border-ai/30 transition-all backdrop-blur-sm shadow-2xl relative overflow-hidden">
-                     <div className="absolute top-0 right-0 p-3 opacity-10">
-                        <div className="font-mono-tactical text-[8px] font-black text-ai uppercase tracking-widest">SEC {idx + 1}</div>
-                     </div>
-                     <div className="flex items-center gap-3 mb-4">
-                        <div className="h-8 w-8 rounded-lg bg-ai/10 flex items-center justify-center text-ai shrink-0 group-hover:scale-110 transition-transform shadow-glow-ai/20">
-                           <Zap className="h-4 w-4" />
-                        </div>
-                        <h4 className="text-sm font-black text-white uppercase tracking-tighter text-glow-ai">{title || "Insight Tático"}</h4>
-                     </div>
-                     <div className="text-[12px] text-white/90 font-medium leading-relaxed prose-ai-insight">
-                        <ReactMarkdown 
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw]}
-                          components={MarkdownComponents as any}
-                        >
-                          {finalBody}
-                        </ReactMarkdown>
-                     </div>
-                  </div>
-                );
-              })}
-              
-              <button 
-                onClick={runPredictiveAnalysis}
-                disabled={isAiLoading}
-                className="col-span-full mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white hover:text-ai transition-all flex items-center justify-center gap-3 py-4 border-t border-white/5"
-              >
-                {isAiLoading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
-                {isAiLoading ? 'RECALCULANDO PADRÕES...' : 'RECALCULAR INSIGHTS ESTRATÉGICOS'}
-              </button>
+                 <div className="prose-ai-insight text-[13px] leading-relaxed">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={MarkdownComponents as any}
+                    >
+                      {lastAiAnalysis}
+                    </ReactMarkdown>
+                 </div>
+
+                 <div className="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+                       🎯 Próxima recalibração sugerida em 24h
+                    </p>
+                    <button 
+                      onClick={runPredictiveAnalysis}
+                      disabled={isAiLoading}
+                      className="w-full sm:w-auto h-11 px-6 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-purple-500 hover:text-black transition-all shadow-[0_0_15px_rgba(168,85,247,0.1)] flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                    >
+                      {isAiLoading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
+                      {isAiLoading ? 'RECALCULANDO...' : 'RECALCULAR INSIGHTS'}
+                    </button>
+                 </div>
+              </div>
            </motion.div>
         )}
       </motion.section>
@@ -707,7 +779,12 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             <div className="font-mono-tactical text-[12px] font-black uppercase tracking-[0.4em] text-primary">
               ANÁLISE DE MERCADO
             </div>
-            <div className="text-xl font-black text-white tracking-tight">Market Share Interno</div>
+            <div className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+              Market Share Interno
+              <span className="bg-primary/20 text-primary text-[10px] px-3 py-1 rounded-full border border-primary/30 shadow-glow-cyan animate-pulse">
+                {inStockProducts.length} TOTAL
+              </span>
+            </div>
           </div>
           <button 
             onClick={runMarketAnalysis}
@@ -722,8 +799,8 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center relative z-10">
-          <div className="h-80 w-full">
+        <div className="flex flex-col gap-10 items-center relative z-10">
+          <div className="h-80 w-full relative">
             {radarData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -784,16 +861,32 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
               </div>
             )}
             
-            {/* Center Text for Donut */}
+            {/* Center Text for Donut - Empty for cleaner look as requested */}
             {radarData.length > 0 && (
-              <div className="absolute top-[60%] left-[25%] -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none hidden lg:block">
-                 <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">{radarData[activeSegmentIndex]?.brand}</div>
-                 <div className="text-2xl font-black text-white">{radarData[activeSegmentIndex]?.units} UN</div>
+              <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-20">
+                 <div className="text-[8px] font-black text-primary/40 uppercase tracking-[0.3em] leading-none mb-1.5">{radarData[activeSegmentIndex]?.brand}</div>
+                 <div className="h-1 w-12 bg-primary/20 rounded-full mx-auto" />
               </div>
             )}
+
+            {/* Marcador flutuante (O "73") - Agora no topo lateral para não obstruir o diagnóstico */}
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              key={activeSegmentIndex}
+              className="absolute -top-6 right-0 bg-black-piano border border-white/10 px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-xl z-30 flex items-center gap-3"
+            >
+              <div className="h-2 w-2 rounded-full bg-primary shadow-glow-cyan animate-pulse" />
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Total Segmento</span>
+                <span className="text-xl font-black text-white leading-none font-mono-tactical">
+                  {radarData[activeSegmentIndex]?.units} <span className="text-[10px] text-primary">UN</span>
+                </span>
+              </div>
+            </motion.div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6 w-full">
              {marketInsight ? (
                <motion.div 
                  initial={{ opacity: 0, x: 20 }}
@@ -804,10 +897,14 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                     <Brain className="h-4 w-4 text-primary" />
                     <span className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest">Neural Insight</span>
                  </div>
-                 <div className="text-[12px] text-white/90 leading-relaxed prose-ai-insight">
-                  <div className="text-[12px] text-white/90 leading-relaxed whitespace-pre-wrap">
-                    {marketInsight}
-                  </div>
+                 <div className="text-[12px] text-white/90 leading-relaxed prose-ai-insight max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={MarkdownComponents as any}
+                    >
+                      {marketInsight}
+                    </ReactMarkdown>
                  </div>
                  <button 
                    onClick={() => setMarketInsight(null)}

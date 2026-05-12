@@ -3,19 +3,20 @@ import { SYSTEM_PROMPTS } from "./prompts";
 import { toast } from "sonner";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"; 
-const FALLBACK_MODEL = "gemma-3-27b-it"; // Tactical fallback exactly as requested
-const MAX_RETRIES = 2;
+const AI_MODELS = [
+  "gemini-3.1-flash-lite-preview",
+  "gemma-4-31b-it",
+  "gemma-4-26b-a4b-it"
+];
+const MAX_RETRIES_PER_MODEL = 1;
 
 class AIService {
   private client: any = null;
 
   constructor() {
-    // console.log("🧠 AI Service 3.1 Initializing (New SDK)...");
     if (API_KEY) {
       this.client = new GoogleGenAI({ apiKey: API_KEY });
     } else {
-      // console.warn("❌ API Key NÃO detectada no import.meta.env.");
       if (typeof window !== 'undefined') {
         setTimeout(() => {
           toast.error("Motor de IA Desativado: VITE_GEMINI_API_KEY não encontrada.", {
@@ -28,15 +29,28 @@ class AIService {
   }
 
   /**
-   * Limpeza universal de respostas da IA
+   * Limpeza universal de respostas da IA (Protocolo Black Piano)
    */
   private cleanAiResponse(text: string): string {
     if (!text) return "";
-    return text
-      .replace(/```[a-z]*\n?/gi, '') // Remove code blocks with optional language
+    let sanitized = text
+      // Remove deep code block markers
+      .replace(/```[a-z]*\n?/gi, '')
       .replace(/```/g, '')
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Remove non-printable chars
+      // Remove any internal thought patterns if they leak
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+      // PROTEÇÃO CRÍTICA: Remove negritos/itálicos que envolvem tags (causa de "código no nome")
+      .replace(/\*\*<(\w+)>(.*?)<\/\1>\*\*/g, '<$1>$2</$1>')
+      .replace(/\*<(\w+)>(.*?)<\/\1>\*/g, '<$1>$2</$1>')
+      .replace(/__<(\w+)>(.*?)<\/\1>__/g, '<$1>$2</$1>')
+      .replace(/_<(\w+)>(.*?)<\/\1>_/g, '<$1>$2</$1>')
+      // Colapsar quebras excessivas preservando a estrutura
+      .replace(/\n{3,}/g, '\n\n')
+      // Remove excessive control characters
+      .replace(/[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "")
       .trim();
+
+    return sanitized;
   }
 
   /**
@@ -45,7 +59,6 @@ class AIService {
   private safeParseJson(text: string): any {
     try {
       const cleaned = this.cleanAiResponse(text);
-      // Busca pelo primeiro '{' e último '}'
       const firstBrace = cleaned.indexOf('{');
       const lastBrace = cleaned.lastIndexOf('}');
       
@@ -56,22 +69,21 @@ class AIService {
       
       return JSON.parse(cleaned);
     } catch (e) {
-      console.warn("⚠️ Falha ao parsear JSON da IA:", e);
       return null;
     }
   }
 
   /**
-   * Execução Segura com Fallback Tático e Extração Robusta de Texto
+   * Execução Segura com Fallback Tático e Grounding Opcional
    */
   private async safeGenerateContent(
     contents: any, 
     systemInstruction?: string, 
+    useSearch: boolean = false,
     signal?: AbortSignal
   ): Promise<{ text: string; modelUsed: string }> {
     if (!this.client) throw new Error("Cérebro Offline: API Key não encontrada.");
     
-    // Formatação rigorosa para o novo SDK
     const formattedContents = Array.isArray(contents) 
       ? contents 
       : [{ role: 'user', parts: [{ text: String(contents) }] }];
@@ -83,69 +95,76 @@ class AIService {
     const extractText = (response: any): string => {
       try {
         if (!response) return "";
-        // Tentativa 1: Propriedade .text (Interactions SDK padrão)
         if (typeof response.text === 'string' && response.text.length > 0) return response.text;
-        // Tentativa 2: Método .text() (Legacy/Standard SDK)
         if (typeof response.text === 'function') {
           const t = response.text();
           if (typeof t === 'string' && t.length > 0) return t;
         }
-        // Tentativa 3: Drill down manual no objeto de resposta
         const candidate = response.candidates?.[0];
         if (candidate?.content?.parts?.[0]?.text) {
           return candidate.content.parts[0].text;
         }
-        // Tentativa 4: Resposta bruta do Interactions SDK
         if (response.response?.text) return response.response.text;
-        
         return "";
       } catch (e) {
-        // console.warn("⚠️ Falha na extração de texto do objeto de resposta:", e);
         return "";
       }
     };
 
-    let lastError: any;
-    
-    // Tentativa 1: Primário (Gemini 3.1 Lite)
-    try {
-      const result = await this.client.models.generateContent({
-        model: PRIMARY_MODEL,
-        contents: formattedContents,
-        systemInstruction: formattedSystem,
-        signal
-      });
+    let lastError: any = null;
+
+    // Loop de Triple Fallback (Protocolo Black Piano)
+    for (let i = 0; i < AI_MODELS.length; i++) {
+      const currentModel = AI_MODELS[i];
       
-      const text = extractText(result.response || result);
-      if (text) return { text: String(text), modelUsed: PRIMARY_MODEL };
-      throw new Error("Resposta vazia do motor primário.");
-    } catch (error: any) {
-      if (error.name === 'AbortError') throw error;
-      // console.warn(`⚠️ Falha no Motor Primário (${PRIMARY_MODEL}):`, error.message || error);
-      lastError = error;
-      // Pequeno delay tático antes do fallback
-      await new Promise(resolve => setTimeout(resolve, 500));
+      try {
+        if (i > 0) {
+          console.warn(`⚠️ [AIService] Fallback Ativado (${i}): Tentando ${currentModel}`);
+        }
+
+        const config: any = {
+          model: currentModel,
+          contents: formattedContents,
+          systemInstruction: formattedSystem,
+          signal
+        };
+
+        // Ativa Google Search apenas no Gemini se solicitado
+        if (useSearch && currentModel.includes("gemini")) {
+          config.tools = [{ googleSearch: {} }];
+        }
+
+        const result = await this.client.models.generateContent(config);
+        const text = extractText(result.response || result);
+
+        if (!text || text.length < 5) {
+          throw new Error(`Resposta curta ou inválida do modelo ${currentModel}`);
+        }
+
+        return { text: String(text), modelUsed: currentModel };
+
+      } catch (error: any) {
+        lastError = error;
+        
+        // Se o usuário cancelou a requisição, para tudo imediatamente
+        if (error.name === 'AbortError' || signal?.aborted) {
+          throw error;
+        }
+
+        const status = error?.status || error?.error?.status;
+        console.error(`❌ [AIService] Falha no modelo ${currentModel} (Status: ${status}):`, error.message);
+
+        // Se for o último modelo, sai do loop
+        if (i === AI_MODELS.length - 1) break;
+        
+        // Espera um delay tático antes do próximo fallback (se for erro de rede/quota)
+        if (status === 503 || status === 429) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
     }
 
-    // Tentativa 2: Fallback (Gemini 3 Flash)
-    try {
-      const result = await this.client.models.generateContent({
-        model: FALLBACK_MODEL,
-        contents: formattedContents,
-        systemInstruction: formattedSystem,
-        signal
-      });
-      
-      const text = extractText(result.response || result);
-      if (!text) throw new Error("Resposta vazia do motor de fallback.");
-      
-      // console.log(`✅ Recuperação concluída via ${FALLBACK_MODEL}.`);
-      return { text: String(text), modelUsed: FALLBACK_MODEL };
-    } catch (error: any) {
-      if (error.name === 'AbortError') throw error;
-      // console.error("🚨 Falha Crítica: Ambos os motores AI falharam.", error.message || error);
-      throw lastError || error;
-    }
+    throw lastError;
   }
 
   async getPredictiveAnalysis(data: any) {
@@ -178,22 +197,37 @@ class AIService {
     }
   }
 
-  async getProductInsight(productName: string, history15Days: any[]) {
+  async getProductInsight(product: any, history15Days: any[], userProfile?: any) {
     try {
       if (!API_KEY) return { text: "Cérebro Offline.", modelUsed: "OFFLINE" };
 
-      const prompt = `
-        ${SYSTEM_PROMPTS.PRODUCT_INSIGHT}
-        PRODUTO: ${productName}
-        HISTÓRICO DOS ÚLTIMOS 15 DIAS:
-        ${JSON.stringify(history15Days)}
-      `;
+      const userName = userProfile?.full_name || 'Operador';
+      
+      const price = product.price || product.sale || 'NÃO DEFINIDO';
+      
+      const prompt = SYSTEM_PROMPTS.PRODUCT_INSIGHT
+        .replace(/\[USER_NAME\]/g, userName)
+        .replace(/\[STOCK\]/g, String(product.stock || 0))
+        .replace(/\[PRICE\]/g, String(price))
+        .replace(/\[DADOS_CONTEXTO\]/g, `
+          PRODUTO: ${product.name}
+          SKU: ${product.sku || 'N/A'}
+          ESTOQUE ATUAL: ${product.stock || 0}
+          PREÇO ATUAL: R$ ${price}
+          HISTÓRICO 15 DIAS (MOVIMENTAÇÕES): ${history15Days.length > 0 ? JSON.stringify(history15Days) : 'Nenhuma movimentação registrada nos últimos 15 dias.'}
+        `);
 
       const { text, modelUsed } = await this.safeGenerateContent(prompt);
       return { text: this.cleanAiResponse(text), modelUsed };
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Insight Error:", error);
-      return { text: "Falha ao gerar insight.", modelUsed: "ERROR" };
+      const isOverloaded = error.status === 503 || error.message?.includes('503') || error.message?.includes('demand');
+      return { 
+        text: isOverloaded 
+          ? "O Oráculo está com alta demanda no momento (Google em manutenção). Tente novamente em alguns segundos." 
+          : "Falha ao gerar insight. Verifique sua conexão.", 
+        modelUsed: "ERROR" 
+      };
     }
   }
 
@@ -254,13 +288,47 @@ class AIService {
     }
   }
 
-  async getMarketAnalysis(product: any, mlResults: any[]) {
+  async getMarketPrice(productName: string): Promise<{ price: number; link: string; modelUsed: string }> {
     try {
-      const productInfo = `${product.name} (Custo: R$ ${product.buy_price || 0})`;
-      const mlContext = mlResults.map(r => `Preço: R$ ${r.price} | Reputação: ${r.seller_reputation} | Vendas: ${r.sold_quantity}`).join('\n');
+      if (!API_KEY) return { price: 0, link: "", modelUsed: "OFFLINE" };
+
+      const prompt = `
+        Pesquise o preço atual de mercado para o produto: "${productName}".
+        FOCO: Use o nome comercial do modelo. IGNORE códigos de SKU internos ou seriais.
+        Considere lojas confiáveis no Brasil (Google Shopping, Amazon, Mercado Livre).
+        Retorne APENAS um JSON no formato: {"price": number, "link": "string"}.
+        Certifique-se de que o preço seja o valor à vista em Reais (R$).
+      `;
+
+      const { text, modelUsed } = await this.safeGenerateContent(
+        prompt, 
+        "Você é um assistente de precificação em tempo real. Use a busca do Google para encontrar o melhor preço atual.",
+        true // Ativa o Google Search Grounding
+      );
+
+      const parsed = this.safeParseJson(text);
+      return { 
+        price: parsed?.price || 0, 
+        link: parsed?.link || "", 
+        modelUsed 
+      };
+    } catch (error) {
+      console.error("Market Price Grounding Error:", error);
+      return { price: 0, link: "", modelUsed: "ERROR" };
+    }
+  }
+
+  async getMarketAnalysis(product: any, marketPrice: number, userName: string = "Operador") {
+    try {
+      const dataContext = `
+        PRODUTO: ${product.name}
+        CUSTO OPERACIONAL: R$ ${product.buy_price || product.cost || 0}
+        VALOR DE REFERÊNCIA (MERCADO): R$ ${marketPrice}
+      `;
+
       const prompt = SYSTEM_PROMPTS.MARKET_ANALYSIS
-        .replace('[PRODUTO_INFO]', productInfo)
-        .replace('[ML_RESULTS]', mlContext);
+        .replace(/\[USER_NAME\]/g, userName)
+        .replace(/\[DADOS_CONTEXTO\]/g, dataContext);
 
       const { text, modelUsed } = await this.safeGenerateContent(prompt, SYSTEM_PROMPTS.MARKET_ANALYSIS);
       return { text: this.cleanAiResponse(text), modelUsed };
@@ -308,7 +376,7 @@ class AIService {
         { text: isReceipt ? systemPrompt : `${systemPrompt}\n\nMODO: AUDITORIA DE ESTOQUE\n${contextPrompt}\n\nINSTRUÇÕES:\n1. Analise a imagem para identificar todos os produtos.\n2. Retorne um JSON no final da resposta: {"identified": [{"name": "string", "qty": number}]}.` }
       ];
 
-      const { text, modelUsed } = await this.safeGenerateContent(contents, systemPrompt, signal);
+      const { text, modelUsed } = await this.safeGenerateContent(contents, systemPrompt, false, signal);
       
       // Tentativa de extração tática de JSON se o componente esperar estrutura
       const parsed = this.safeParseJson(text);
@@ -353,7 +421,7 @@ class AIService {
     const prompt = `${SYSTEM_PROMPTS.SKU_RESOLUTION}\n\nSKUS PARA IDENTIFICAÇÃO EM LOTE:\n${skus.join('\n')}\n\nRetorne um JSON com o array "identified" contendo { "name", "sku" } para cada item.`;
     
     try {
-      const { text, modelUsed } = await this.safeGenerateContent(prompt, SYSTEM_PROMPTS.SKU_RESOLUTION, signal);
+      const { text, modelUsed } = await this.safeGenerateContent(prompt, SYSTEM_PROMPTS.SKU_RESOLUTION, false, signal);
       const parsed = this.safeParseJson(text);
       return { identified: parsed?.identified || [], modelUsed };
     } catch (error: any) {
@@ -379,7 +447,7 @@ class AIService {
         { text: prompt }
       ];
 
-      const { text, modelUsed } = await this.safeGenerateContent(contents, SYSTEM_PROMPTS.VISION_EXTRACTOR, signal);
+      const { text, modelUsed } = await this.safeGenerateContent(contents, SYSTEM_PROMPTS.VISION_EXTRACTOR, false, signal);
       const parsed = this.safeParseJson(text);
       return parsed || null;
     } catch (error: any) {

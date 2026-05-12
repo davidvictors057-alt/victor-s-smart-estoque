@@ -194,6 +194,7 @@
 
   .text-glow-cyan { text-shadow: 0 0 10px hsl(180 100% 50% / 0.7), 0 0 20px hsl(180 100% 50% / 0.4); }
   .text-glow-ai { text-shadow: 0 0 10px hsl(191 100% 50% / 0.8), 0 0 20px hsl(191 100% 50% / 0.4); }
+  .text-glow-purple { text-shadow: 0 0 10px hsla(270, 95%, 75%, 0.8), 0 0 20px hsla(270, 95%, 75%, 0.4); }
   .text-glow-success { text-shadow: 0 0 10px hsl(120 100% 50% / 0.7); }
   .text-glow-danger { text-shadow: 0 0 10px hsl(348 100% 50% / 0.7); }
 
@@ -319,18 +320,20 @@
   }
 
   .neon-purple-border {
-    border: 3px solid rgba(168, 85, 247, 0.8);
+    border: 1px solid hsla(270, 95%, 75%, 0.4);
+    background: linear-gradient(to bottom right, rgba(0,0,0,0.8), rgba(168, 85, 247, 0.05));
     box-shadow: 
-      inset 0 0 25px rgba(168, 85, 247, 0.3), 
-      0 0 35px rgba(168, 85, 247, 0.4);
-    transition: all 0.3s ease-in-out;
+      0 0 20px rgba(168, 85, 247, 0.15),
+      inset 0 0 20px rgba(168, 85, 247, 0.1);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .neon-purple-border:hover {
-    border: 4px solid rgba(168, 85, 247, 1);
+    border-color: rgba(168, 85, 247, 0.8);
     box-shadow: 
-      inset 0 0 45px rgba(168, 85, 247, 0.6), 
-      0 0 60px rgba(168, 85, 247, 0.7);
+      0 0 40px rgba(168, 85, 247, 0.3),
+      inset 0 0 30px rgba(168, 85, 247, 0.2);
+    transform: translateY(-2px);
   }
 
   .neon-purple-border-thin {
@@ -451,14 +454,8 @@
     box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.2) !important;
   }
 
-  .neon-purple-border {
-    border: 1px solid hsl(var(--ai) / 0.5);
-    box-shadow: 0 0 15px hsl(var(--ai) / 0.15), inset 0 0 15px hsl(var(--ai) / 0.05);
-    transition: all 0.3s ease;
-  }
-  
   .neon-purple-border-thin {
-    border: 1px solid hsl(var(--ai) / 0.2);
+    border: 1px solid rgba(168, 85, 247, 0.2);
     transition: all 0.3s ease;
   }
 
@@ -489,10 +486,10 @@
     background-size: 24px 24px;
   }
   .safe-pt {
-    padding-top: env(safe-area-inset-top, 2rem);
+    padding-top: max(env(safe-area-inset-top), 0.75rem);
   }
   .safe-pb {
-    padding-bottom: env(safe-area-inset-bottom, 2rem);
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
   }
 }
 
@@ -505,7 +502,9 @@
 
 /* Tactical Prose Utilities */
 .prose-ai-insight p {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+  text-align: justify;
+  line-height: 1.6;
 }
 .prose-ai-insight p:last-child {
   margin-bottom: 0;
@@ -543,7 +542,8 @@ warn {
 }
 
 price {
-  @apply font-mono-tactical font-bold text-success;
+  @apply font-mono-tactical font-bold text-primary;
+  text-shadow: 0 0 5px hsl(var(--primary) / 0.3);
 }
 
 desc {

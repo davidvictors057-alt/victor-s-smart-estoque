@@ -495,9 +495,10 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
 
   // AUTO-FILL LOGIC: Listen to SKU changes
   useEffect(() => {
-    if (data.sku && data.sku.length > 3) {
-      const existing = products.find(p => p.sku === data.sku || p.imei === data.sku);
-      const inCatalog = catalog.find(c => c.sku === data.sku);
+    if (data.sku && data.sku.trim().length > 3) {
+      const cleanSku = data.sku.trim();
+      const existing = products.find(p => p.sku?.trim() === cleanSku || p.imei?.trim() === cleanSku);
+      const inCatalog = catalog.find(c => c.sku.trim() === cleanSku);
 
       if (existing || inCatalog) {
         const foundName = existing?.name || inCatalog?.name;
@@ -761,7 +762,7 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
               <div className="space-y-2">
                 <label className="text-[10px] text-white font-black uppercase tracking-widest ml-4">Valor Venda</label>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex items-center gap-3">
-                  <DollarSign className="w-4 h-4 text-emerald-500" />
+                  <DollarSign className="w-4 h-4 text-primary" />
                   <input
                     type="number"
                     value={data.sale || ''}
@@ -777,16 +778,16 @@ const ManualEntryModal = ({ item, onSave, onClose, onScanSKU, onScanIMEIs, onSca
             </div>
 
             {data.cost > 0 && data.sale > 0 && (
-              <div className={`p-6 rounded-[35px] border flex items-center justify-between shadow-2xl ${margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/10' : 'bg-amber-500/10 border-amber-500/20 shadow-amber-500/10'
+              <div className={`p-6 rounded-[35px] border flex items-center justify-between shadow-2xl ${margin >= 30 ? 'bg-primary/10 border-primary/20 shadow-primary/10' : 'bg-amber-500/10 border-amber-500/20 shadow-amber-500/10'
                 }`}>
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${margin >= 30 ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${margin >= 30 ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-500'
                     }`}>
                     <Percent className="w-6 h-6" />
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-white">Margem de Lucro</p>
-                    <p className={`text-2xl font-black ${margin >= 30 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    <p className={`text-2xl font-black ${margin >= 30 ? 'text-primary' : 'text-amber-500'}`}>
                       +{margin.toFixed(1)}%
                     </p>
                   </div>

@@ -136,7 +136,7 @@ const Index = () => {
         ) : (
           <div className="flex flex-col h-full w-full">
              {/* Header - Fixed Height Area */}
-             <div className="flex-none pt-3 px-3">
+             <div className="flex-none safe-pt px-3">
                 <TopBar />
              </div>
 
@@ -161,7 +161,7 @@ const Index = () => {
              </div>
 
              {/* Footer - Fixed Height Area */}
-             <div className="flex-none pb-3 px-3">
+             <div className="flex-none safe-pb px-3">
                 <BottomNav active={activeTab} onChange={setTab} />
              </div>
           </div>

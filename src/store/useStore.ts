@@ -17,8 +17,11 @@ export interface Product {
   status: 'in_stock' | 'sold' | 'reserved' | 'repair';
   image_url?: string | null;
   internal_code?: string | null;
+  market_price?: number | null;
+  last_radar_sync?: string | null;
   created_at: string;
   updated_at: string;
+  market_analysis?: string | null;
 }
 
 export interface CatalogItem {
@@ -224,7 +227,7 @@ export const useStore = create<AppState>()(
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          const columns = 'id, sku, name, spec, imei, imei2, brand, category, cost, sale, status, image_url, internal_code, created_at, updated_at';
+          const columns = 'id, sku, name, spec, imei, imei2, brand, category, cost, sale, status, image_url, internal_code, market_price, last_radar_sync, created_at, updated_at';
           const { data, error } = await supabase
             .from('products')
             .select(columns)
@@ -445,7 +448,7 @@ export const useStore = create<AppState>()(
 
       fetchTickets: async () => {
         try {
-          const { data, error } = await supabase.from('support_tickets').select('*, user:profiles(*)').order('created_at', { ascending: false });
+          const { data, error } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
           if (error) throw error;
           if (data) set({ tickets: data });
         } catch (error) { console.error(error); }
@@ -1074,7 +1077,7 @@ export const useStore = create<AppState>()(
               acc[name].qtd += 1;
               return acc;
             }, {}),
-            movements: movements.slice(0, 15).map(m => ({ 
+            movements: movements.slice(0, 50).map(m => ({ 
               type: m.type, 
               item: m.product?.name || 'Item Desconhecido',
               time: m.timestamp 

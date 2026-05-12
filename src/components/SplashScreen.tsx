@@ -125,7 +125,7 @@ export const SplashScreen = () => {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-20 flex flex-none flex-col items-center pt-8 pb-2 sm:pt-12"
+        className="relative z-20 flex flex-none flex-col items-center safe-pt pb-2 sm:pt-12"
       >
         <VictorsLogo size={window.innerWidth > 640 ? "xl" : "lg"} />
         <div className="mt-2 text-center">
@@ -390,7 +390,7 @@ export const SplashScreen = () => {
       </main>
 
       {/* FIXED FOOTER */}
-      <footer className="relative z-20 flex flex-none items-center justify-center gap-2 sm:gap-4 py-6 opacity-90">
+      <footer className="relative z-20 flex flex-none items-center justify-center gap-2 sm:gap-4 safe-pb opacity-90">
         <div className="h-[0.5px] w-4 sm:w-10 bg-white/50" />
         <p className="font-mono-tactical text-[7px] sm:text-[11px] font-black tracking-[0.2em] sm:tracking-[0.4em] text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] uppercase whitespace-nowrap">
           POWERED BY GEMINI 3.1 & SUPABASE

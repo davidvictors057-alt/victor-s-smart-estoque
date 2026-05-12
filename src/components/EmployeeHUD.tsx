@@ -660,6 +660,51 @@ const RegisterModal = ({ action, initialCode, onClose, onSubmit }: RegisterModal
           </div>
 
           <div className="space-y-4 p-5">
+            {/* REAL-TIME STOCK INDICATOR (HUD) */}
+            <AnimatePresence>
+              {(sku || imei || product) && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                  className="bg-black/40 neon-blue-border rounded-2xl p-4 flex items-center justify-between overflow-hidden relative group"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-50" />
+                  <div className="relative flex items-center gap-4">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl border-2 transition-all duration-500 ${
+                      products.filter(p => p.status === 'in_stock' && (p.sku === (sku || imei) || p.name === product)).length > 0
+                        ? "bg-success/20 border-success/40 text-success shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                        : "bg-danger/20 border-danger/40 text-danger shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                    }`}>
+                      <Package className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="font-mono-tactical text-[10px] font-black uppercase tracking-[0.3em] text-white/40">
+                        ESTOQUE DISPONÍVEL
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-3xl font-black font-mono-tactical tracking-tighter ${
+                          products.filter(p => p.status === 'in_stock' && (p.sku === (sku || imei) || p.name === product)).length > 0 
+                            ? "text-white" 
+                            : "text-danger"
+                        }`}>
+                          {products.filter(p => p.status === 'in_stock' && (p.sku === (sku || imei) || p.name === product)).length}
+                        </span>
+                        <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">UNIDADES</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right relative">
+                    <div className="font-mono-tactical text-[9px] font-black uppercase tracking-widest text-primary mb-1">Status de Rede</div>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse shadow-glow-success" />
+                      <span className="text-[10px] font-black text-success uppercase">Sincronizado</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           {/* Inputs */}
           <Field icon={Tag} label="Nomenclatura">
             <div className="flex items-center gap-2">

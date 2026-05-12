@@ -20,9 +20,9 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
 
 
     const inventoryItems: CatalogItem[] = productList
-      .filter(p => p.sku)
+      .filter(p => p.sku || p.imei)
       .map(p => ({
-        sku: p.sku!.trim(),
+        sku: (p.sku || p.imei || "").trim(),
         name: p.name,
         spec: p.spec,
         image_url: p.image_url,
@@ -144,7 +144,7 @@ export const SearchByNameHUD = ({ open, onClose, onSelect }: SearchByNameHUDProp
                             )}
                             <div className="bg-primary/20 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1">
                               <Package className="w-2 h-2" />
-                              ESTOQUE: {useStore.getState().products.filter(p => p.sku?.trim() === item.sku.trim() && p.status === 'in_stock').length}
+                              ESTOQUE: {useStore.getState().products.filter(p => (p.sku?.trim() === item.sku.trim() || p.imei?.trim() === item.sku.trim()) && p.status === 'in_stock').length}
                             </div>
                           </div>
                           <div className="flex gap-3 mt-1 opacity-40">
