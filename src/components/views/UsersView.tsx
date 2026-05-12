@@ -52,7 +52,7 @@ export const UsersView = () => {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newProfile.full_name && newProfile.pin.length === 6) {
+    if (newProfile.full_name && newProfile.pin.length >= 4 && newProfile.pin.length <= 8) {
       setIsAdding(true);
       try {
         await addProfile({
@@ -360,7 +360,7 @@ export const UsersView = () => {
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label className="font-mono-tactical text-[10px] font-bold uppercase tracking-widest text-primary">PIN DE ACESSO (6 DÍGITOS)</label>
+                  <label className="font-mono-tactical text-[10px] font-bold uppercase tracking-widest text-primary">PIN DE ACESSO (4 A 8 DÍGITOS)</label>
                   <input
                     required
                     type="password"
@@ -368,7 +368,7 @@ export const UsersView = () => {
                     value={newProfile.pin}
                     onChange={(e) => setNewProfile({ ...newProfile, pin: e.target.value.replace(/\D/g, '') })}
                     className="w-full rounded-xl bg-white/5 px-4 py-3 text-sm text-white border border-white/10 focus:border-primary focus:outline-none tracking-widest"
-                    placeholder="••••••"
+                    placeholder="••••"
                   />
                 </div>
 
