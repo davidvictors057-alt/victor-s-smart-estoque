@@ -9,15 +9,15 @@ import { toast } from 'sonner';
 export const imageService = {
   /**
    * Compresses a file using severe settings for PWA performance.
-   * Targets ~100KB-120KB as requested.
+   * Targets ~30KB as requested.
    */
   async compressImage(file: File): Promise<File> {
     const options = {
-      maxSizeMB: 0.15, // Target ~150KB max
+      maxSizeMB: 0.03, // Target ~30KB max
       maxWidthOrHeight: 1280, // High enough for "premium" but manageable
       useWebWorker: true,
       fileType: 'image/webp' as string, // Tactical WebP format
-      initialQuality: 0.7,
+      initialQuality: 0.6, // Slightly lower quality for aggressive size target
     };
 
     try {

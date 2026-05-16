@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toast } from 'sonner';
+import { DEFAULT_PLACEHOLDER } from '@/lib/constants';
 
 interface Product {
   id: string;
@@ -153,7 +154,7 @@ export const CatalogExport: React.FC<CatalogExportProps> = ({ products, filterQu
                   border: '1px solid rgba(255,255,255,0.1)'
                 }}>
                   <img 
-                    src={p.image_url || 'https://via.placeholder.com/400x400?text=No+Image'} 
+                    src={p.image_url || DEFAULT_PLACEHOLDER} 
                     alt="" 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />

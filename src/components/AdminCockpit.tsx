@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Radar,
@@ -47,6 +47,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { aiService } from "@/services/aiService";
+import { imageService } from "@/services/imageService";
 import { toast } from "sonner";
 
 // Custom components for Markdown to handle semantic colors (Synced with AIView)
@@ -79,11 +80,11 @@ const cascade = (i: number) => ({
 });
 
 export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => void }) => {
-  const { 
-    products, 
-    movements, 
-    updateProduct, 
-    fetchAll, 
+  const {
+    products,
+    movements,
+    updateProduct,
+    fetchAll,
     getChartData,
     lastAiAnalysis,
     lastAiAnalysisModel,
@@ -98,6 +99,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [shoppingListOpen, setShoppingListOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [tooltipMetric, setTooltipMetric] = useState<string | null>(null);
   const [marketInsight, setMarketInsight] = useState<string | null>(null);
   const [isMarketAiLoading, setIsMarketAiLoading] = useState(false);
@@ -110,7 +112,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
       const distribution = radarData
         .map((d) => `${d.brand}: ${d.units} unidades`)
         .join(', ');
-      
+
       const prompt = `Gere um RELATÓRIO TÁTICO EXECUTIVO (HUD STYLE) baseado nesta distribuição de estoque: ${distribution}. 
       
       ESTRUTURA OBRIGATÓRIA:
@@ -134,7 +136,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
       - Use <warn> para alertas e <price> para valores.
       - NÃO use códigos de máquina ou IDs internos.
       - Texto 100% limpo e direto ao ponto.`;
-      
+
       const response = await aiService.chat(prompt);
       setMarketInsight(response.text);
     } catch (err) {
@@ -166,12 +168,12 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
     await fetchAll();
     setTimeout(() => setIsRefreshing(false), 1000);
   };
-  
+
   // 🧠 INTELLIGENT MARKET SHARE LOGIC (9+1 Sectors)
   const getBrandSector = (p: Product) => {
     const brandField = (p.brand || "").toUpperCase();
     const name = p.name.toUpperCase();
-    
+
     if (brandField.includes('XIAOMI') || name.includes('XIAOMI') || name.includes('REDMI') || name.includes('POCO')) return 'XIAOMI';
     if (brandField.includes('APPLE') || name.includes('APPLE') || name.includes('IPHONE')) return 'APPLE';
     if (brandField.includes('SAMSUNG') || name.includes('SAMSUNG') || name.includes('GALAXY')) return 'SAMSUNG';
@@ -179,7 +181,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
     if (brandField.includes('MOTOROLA') || name.includes('MOTO ')) return 'MOTOROLA';
     if (brandField.includes('ITEL') || name.includes('ITEL')) return 'ITEL';
     if (brandField.includes('MULTI') || name.includes('MULTI')) return 'MULTILASER';
-    
+
     if (brandField && brandField !== 'GERAL' && brandField !== 'OUTROS') return brandField;
     const firstWord = name.split(' ')[0];
     return firstWord.length > 2 ? firstWord : 'OUTROS';
@@ -189,7 +191,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const recentSales = movements.filter(m => m.type === 'out' && new Date(m.timestamp) > fifteenDaysAgo);
 
   const inStockProducts = products.filter(p => p.status === 'in_stock');
-  
+
   // Calculate metrics per sector
   const sectorMetrics = inStockProducts.reduce((acc: Record<string, { units: number, stockValue: number, salesValue: number }>, p) => {
     const sector = getBrandSector(p);
@@ -220,14 +222,14 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   // 9+1 Logic: Top 9 + Others
   const top9 = allSectors.filter(s => s.brand !== 'OUTROS').slice(0, 9);
   const othersData = allSectors.filter(s => s.brand === 'OUTROS' || !top9.find(t => t.brand === s.brand));
-  
+
   const totalOthersUnits = othersData.reduce((sum, s) => sum + s.units, 0);
-  
+
   const radarData = [
     ...top9,
     { brand: 'OUTROS', units: totalOthersUnits, score: 0 }
   ].filter(s => s.units > 0);
-  
+
   // Total value in stock (ONLY IN STOCK)
   const totalPatrimony = inStockProducts.reduce((sum, p) => sum + (p.cost || 0), 0);
   const formattedPatrimony = totalPatrimony.toLocaleString("pt-BR");
@@ -248,32 +250,32 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   const todayProcessed = movements.filter(m => {
     if (!m.timestamp) return false;
-    
+
     // Normalização agressiva para navegadores mobile
     let isoString = m.timestamp.replace(' ', 'T');
     if (isoString.includes('.')) {
-       isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
+      isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
     }
-    
+
     const mDate = new Date(isoString);
     return !isNaN(mDate.getTime()) && formatLocalISO(mDate) === todayStr && m.type === 'in';
   });
 
   const yesterdayProcessed = movements.filter(m => {
     if (!m.timestamp) return false;
-    
+
     // Normalização agressiva para navegadores mobile
     let isoString = m.timestamp.replace(' ', 'T');
     if (isoString.includes('.')) {
-       isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
+      isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
     }
-    
+
     const mDate = new Date(isoString);
     return !isNaN(mDate.getTime()) && formatLocalISO(mDate) === yesterdayStr && m.type === 'in';
   });
 
-  const growth = yesterdayProcessed.length > 0 
-    ? ((todayProcessed.length - yesterdayProcessed.length) / yesterdayProcessed.length) * 100 
+  const growth = yesterdayProcessed.length > 0
+    ? ((todayProcessed.length - yesterdayProcessed.length) / yesterdayProcessed.length) * 100
     : 0;
 
   const integrity = products.length > 0 ? (inStockProducts.length / products.length) * 100 : 0;
@@ -282,16 +284,16 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const salesMovements = movements.filter(m => m.type === 'out');
   const totalRevenue = salesMovements.reduce((sum, m) => sum + (m.product?.sale || 0), 0);
   const totalCostOfSold = salesMovements.reduce((sum, m) => sum + (m.product?.cost || 0), 0);
-  
+
   const ticketMedio = salesMovements.length > 0 ? totalRevenue / salesMovements.length : 0;
   const margemBruta = totalRevenue > 0 ? ((totalRevenue - totalCostOfSold) / totalRevenue) * 100 : 0;
-  
+
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
   const recentSalesCount = salesMovements.filter(m => new Date(m.timestamp) > thirtyDaysAgo).length;
   const inStockCount = inStockProducts.length;
   const giroMedio = inStockCount > 0 ? recentSalesCount / inStockCount : 0;
-  
+
   const ruptureItems = Array.from(new Set(inStockProducts.map(p => p.name)))
     .filter(name => inStockProducts.filter(p => p.name === name).length <= 1);
 
@@ -326,20 +328,53 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button 
+          <button
             onClick={() => onNavigate?.("ai_vision")}
             className="flex-1 sm:flex-none h-11 px-4 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary transition-all hover:bg-primary hover:text-black shadow-glow-cyan gap-2"
           >
             <Camera className="h-4 w-4" />
             <span className="font-mono-tactical text-[9px] font-black uppercase tracking-widest hidden sm:block">AUDITORIA IA</span>
           </button>
-          <button 
+          <button
             onClick={() => setShoppingListOpen(true)}
             className="h-11 w-11 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-white transition-all hover:bg-white/10 shrink-0"
           >
             <ShoppingCart className="h-4 w-4" />
           </button>
-          <button 
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !editingProductId) return;
+
+              const toastId = toast.loading("Processando imagem...");
+              const reader = new FileReader();
+              reader.onload = async (event) => {
+                const base64 = event.target?.result as string;
+                try {
+                  const storedUrl = await imageService.processBase64(base64, `cockpit-update-${editingProductId}.webp`);
+                  if (storedUrl) {
+                    await updateProduct(editingProductId, { image_url: storedUrl });
+                    toast.success("Foto atualizada!", { id: toastId });
+                  } else {
+                    toast.error("Falha ao processar imagem", { id: toastId });
+                  }
+                } catch (err) {
+                  console.error(err);
+                  toast.error("Erro na sincronização", { id: toastId });
+                } finally {
+                  setEditingProductId(null);
+                }
+              };
+              reader.onerror = () => toast.error("Erro ao ler arquivo", { id: toastId });
+              reader.readAsDataURL(file);
+              if (e.target) e.target.value = "";
+            }}
+          />
+          <button
             onClick={handleRefresh}
             className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-white transition-all hover:bg-white/10 hover:text-white shrink-0 ${isRefreshing ? 'animate-spin' : ''}`}
           >
@@ -395,20 +430,20 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
 
           <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 border-t border-white/5 pt-8">
             {[
-              { 
-                label: "Margem bruta", 
-                value: `${margemBruta.toFixed(1)}%`, 
-                trend: margemBruta > 25 ? "up" : "down" 
+              {
+                label: "Margem bruta",
+                value: `${margemBruta.toFixed(1)}%`,
+                trend: margemBruta > 25 ? "up" : "down"
               },
-              { 
-                label: "Ticket médio", 
-                value: `R$ ${ticketMedio.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`, 
-                trend: ticketMedio > 500 ? "up" : "down" 
+              {
+                label: "Ticket médio",
+                value: `R$ ${ticketMedio.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`,
+                trend: ticketMedio > 500 ? "up" : "down"
               },
-              { 
-                label: "Giro médio", 
-                value: `${giroMedio.toFixed(1)}x`, 
-                trend: giroMedio > 1 ? "up" : "down" 
+              {
+                label: "Giro médio",
+                value: `${giroMedio.toFixed(1)}x`,
+                trend: giroMedio > 1 ? "up" : "down"
               },
             ].map((s) => (
               <div key={s.label} className="min-w-0 relative group">
@@ -416,7 +451,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                   <div className="font-mono-tactical text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white truncate">
                     {s.label}
                   </div>
-                  <button 
+                  <button
                     onClick={() => setTooltipMetric(s.label === tooltipMetric ? null : s.label)}
                     className="text-white hover:text-primary transition-colors"
                   >
@@ -434,7 +469,8 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
 
                 <AnimatePresence>
                   {tooltipMetric === s.label && (
-                    <motion.div 
+                    <motion.div
+                      key={`metric-tooltip-${s.label}`}
                       initial={{ opacity: 0, y: 5, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 5, scale: 0.95 }}
@@ -442,7 +478,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                     >
                       {/* Arrow/Pointer */}
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black border-l border-t border-white/10 rotate-45" />
-                      
+
                       <div className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest mb-1.5 flex items-center gap-2">
                         <Sparkles className="h-3 w-3" />
                         {metricExplanations[s.label].title}
@@ -458,11 +494,12 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
       </motion.section>
-      
+
       {/* ⚠️ CRITICAL ALERTS: Ruptura Zero */}
       <AnimatePresence>
         {ruptureItems.length > 0 && (
           <motion.section
+            key="rupture-alert-section"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
@@ -481,7 +518,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                   <p className="text-[10px] text-danger font-black uppercase tracking-widest opacity-80">Ação imediata requerida</p>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={() => setShoppingListOpen(true)}
                 className="h-10 px-4 bg-danger/10 hover:bg-danger/20 border border-danger/20 text-danger rounded-xl text-[10px] font-black uppercase tracking-widest gap-2"
               >
@@ -489,23 +526,23 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                 Gerar Lista
               </Button>
             </div>
-            
+
             <div className="space-y-3">
-              {ruptureItems.slice(0, 3).map(name => (
-                  <div key={name} className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
-                    <span className="text-sm font-bold text-white">{name.replace(/<.*?>/g, '')}</span>
-                    <Button 
-                      size="sm" 
-                      className="bg-success hover:bg-success/80 h-7 text-[9px] font-black rounded-lg"
-                      onClick={() => {
-                        const text = `🚨 ALERTA RUPTURA ZERO: O item *${name}* está com apenas 1 unidade no estoque. Sugiro reposição imediata.`;
-                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                      }}
-                    >
-                      AVISAR PATRÃO
-                    </Button>
-                  </div>
-                ))}
+              {ruptureItems.slice(0, 3).map((name, rIdx) => (
+                <div key={`rupture-item-${rIdx}`} className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
+                  <span className="text-sm font-bold text-white">{name.replace(/<.*?>/g, '')}</span>
+                  <Button
+                    size="sm"
+                    className="bg-success hover:bg-success/80 h-7 text-[9px] font-black rounded-lg"
+                    onClick={() => {
+                      const text = `🚨 ALERTA RUPTURA ZERO: O item *${name}* está com apenas 1 unidade no estoque. Sugiro reposição imediata.`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                  >
+                    AVISAR PATRÃO
+                  </Button>
+                </div>
+              ))}
             </div>
           </motion.section>
         )}
@@ -516,7 +553,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         className="bg-black-piano neon-purple-border rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden"
       >
         <div className="absolute -right-20 -bottom-20 h-48 w-48 rounded-full bg-ai/10 blur-[80px]" />
-        
+
         <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-ai/20 text-ai ring-1 ring-ai/50 animate-pulse-ai">
@@ -529,75 +566,75 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
 
           <div className="flex items-center gap-3">
-             <div className="font-mono-tactical text-right mr-2">
-                <div className="text-[8px] uppercase tracking-widest text-white">Cérebro</div>
-                <div className={`text-[10px] font-black ${onlineBrainMode ? 'text-ai' : 'text-white'}`}>
-                   {onlineBrainMode ? 'ONLINE' : 'OFFLINE'}
-                </div>
-             </div>
+            <div className="font-mono-tactical text-right mr-2">
+              <div className="text-[8px] uppercase tracking-widest text-white">Cérebro</div>
+              <div className={`text-[10px] font-black ${onlineBrainMode ? 'text-ai' : 'text-white'}`}>
+                {onlineBrainMode ? 'ONLINE' : 'OFFLINE'}
+              </div>
+            </div>
 
-             {!lastAiAnalysis && (
-                <button
-                  onClick={runPredictiveAnalysis}
-                  disabled={isAiLoading}
-                  className="bg-ai text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:neon-purple-border transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
-                >
-                  {isAiLoading ? 'Processando...' : 'Ativar Cérebro'}
-                </button>
-             )}
+            {!lastAiAnalysis && (
+              <button
+                onClick={runPredictiveAnalysis}
+                disabled={isAiLoading}
+                className="bg-ai text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:neon-purple-border transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
+              >
+                {isAiLoading ? 'Processando...' : 'Ativar Cérebro'}
+              </button>
+            )}
           </div>
         </div>
 
         {lastAiAnalysis && (
-           <motion.div 
-             initial={{ opacity: 0, y: 15 }}
-             animate={{ opacity: 1, y: 0 }}
-             className="mt-8"
-           >
-              <div className="neon-purple-border rounded-[2rem] p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden group">
-                 {/* Background Glow */}
-                 <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-ai/10 blur-[100px] pointer-events-none" />
-                 
-                 <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-                    <div className="flex items-center gap-4">
-                       <div className="h-10 w-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                          <Zap className="h-5 w-5" />
-                       </div>
-                       <div>
-                          <h4 className="text-sm font-black text-white uppercase tracking-widest text-glow-purple">Relatório de Inteligência Preditiva</h4>
-                          <p className="text-[10px] text-purple-400/60 font-bold uppercase tracking-tighter">Protocolo Nexus Oracle v3.1</p>
-                       </div>
-                    </div>
-                    <div className="font-mono-tactical text-[9px] text-white/30 font-black uppercase tracking-widest hidden sm:block">
-                       MODEL: {lastAiAnalysisModel}
-                    </div>
-                 </div>
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-8"
+          >
+            <div className="neon-purple-border rounded-[2rem] p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden group">
+              {/* Background Glow */}
+              <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-ai/10 blur-[100px] pointer-events-none" />
 
-                 <div className="prose-ai-insight text-[13px] leading-relaxed">
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeRaw]}
-                      components={MarkdownComponents as any}
-                    >
-                      {lastAiAnalysis}
-                    </ReactMarkdown>
-                 </div>
-
-                 <div className="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
-                       🎯 Próxima recalibração sugerida em 24h
-                    </p>
-                    <button 
-                      onClick={runPredictiveAnalysis}
-                      disabled={isAiLoading}
-                      className="w-full sm:w-auto h-11 px-6 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-purple-500 hover:text-black transition-all shadow-[0_0_15px_rgba(168,85,247,0.1)] flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
-                    >
-                      {isAiLoading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
-                      {isAiLoading ? 'RECALCULANDO...' : 'RECALCULAR INSIGHTS'}
-                    </button>
-                 </div>
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest text-glow-purple">Relatório de Inteligência Preditiva</h4>
+                    <p className="text-[10px] text-purple-400/60 font-bold uppercase tracking-tighter">Protocolo Nexus Oracle v3.1</p>
+                  </div>
+                </div>
+                <div className="font-mono-tactical text-[9px] text-white/30 font-black uppercase tracking-widest hidden sm:block">
+                  MODEL: {lastAiAnalysisModel}
+                </div>
               </div>
-           </motion.div>
+
+              <div className="prose-ai-insight text-[13px] leading-relaxed">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={MarkdownComponents as any}
+                >
+                  {lastAiAnalysis}
+                </ReactMarkdown>
+              </div>
+
+              <div className="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+                  🎯 Próxima recalibração sugerida em 24h
+                </p>
+                <button
+                  onClick={runPredictiveAnalysis}
+                  disabled={isAiLoading}
+                  className="w-full sm:w-auto h-11 px-6 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-purple-500 hover:text-black transition-all shadow-[0_0_15px_rgba(168,85,247,0.1)] flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                >
+                  {isAiLoading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
+                  {isAiLoading ? 'RECALCULANDO...' : 'RECALCULAR INSIGHTS'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
         )}
       </motion.section>
 
@@ -629,29 +666,29 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 800, fontFamily: 'JetBrains Mono' }} 
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 800, fontFamily: 'JetBrains Mono' }}
               />
-              <Tooltip 
+              <Tooltip
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
                 labelStyle={{ color: '#00ffff', fontWeight: 900, fontSize: '10px', marginBottom: '4px' }}
               />
-              <Bar 
-                dataKey="in" 
-                fill="#00a3ff" 
-                radius={[4, 4, 0, 0]} 
+              <Bar
+                dataKey="in"
+                fill="#00a3ff"
+                radius={[4, 4, 0, 0]}
                 name="Entradas"
                 shadow-blur="10"
               />
-              <Bar 
-                dataKey="out" 
-                fill="#ff4444" 
-                radius={[4, 4, 0, 0]} 
-                name="Saídas" 
+              <Bar
+                dataKey="out"
+                fill="#ff4444"
+                radius={[4, 4, 0, 0]}
+                name="Saídas"
               />
             </BarChart>
           </ResponsiveContainer>
@@ -687,7 +724,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           deltaValue={growth}
           deltaLabel={growth !== 0 ? `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%` : "0%"}
           tone="cyan"
-          onClick={() => onNavigate?.("moves")} 
+          onClick={() => onNavigate?.("moves")}
         />
       </div>
 
@@ -711,7 +748,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             const userMoves = movements.filter(m => m.operator_id === profile.id).length;
             const maxMoves = Math.max(...profiles.map(p => movements.filter(m => m.operator_id === p.id).length), 1);
             const percentage = (userMoves / maxMoves) * 100;
-            
+
             return (
               <div key={profile.id} className="space-y-2">
                 <div className="flex justify-between items-end">
@@ -722,7 +759,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                   <span className="text-[10px] font-black text-cyan-400">{userMoves} AÇÕES</span>
                 </div>
                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <motion.div 
+                  <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
                     className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400"
@@ -745,7 +782,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         <div className="relative">
           <div className="font-mono-tactical text-[10px] font-black uppercase tracking-[0.4em] text-ai/60 mb-2">SISTEMA ORÁCULO OPERACIONAL</div>
           <h2 className="text-2xl font-black text-white mb-6">Brain de Gestão Ativado</h2>
-          
+
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
               <div className="text-[9px] font-black text-white uppercase mb-1">Giro Previsto</div>
@@ -757,7 +794,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             </div>
           </div>
 
-          <Button 
+          <Button
             className="w-full bg-ai hover:bg-ai/80 text-black font-black py-6 rounded-2xl shadow-glow-ai text-xs tracking-widest uppercase"
             onClick={() => onNavigate?.("ai")}
           >
@@ -767,13 +804,13 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
       </motion.section>
 
       {/* 🥧 Market Share - Premium Donut Chart */}
-      <motion.section 
-        {...cascade(5)} 
+      <motion.section
+        {...cascade(5)}
         whileHover={{ y: -5 }}
         className="bg-black-piano neon-blue-border rounded-[2.5rem] p-5 sm:p-8 shadow-[0_25px_50px_rgba(0,163,255,0.15)] relative overflow-hidden"
       >
         <div className="absolute inset-0 tactical-grid opacity-5" />
-        
+
         <div className="mb-8 flex items-center justify-between relative z-10">
           <div>
             <div className="font-mono-tactical text-[12px] font-black uppercase tracking-[0.4em] text-primary">
@@ -786,16 +823,15 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
               </span>
             </div>
           </div>
-          <button 
+          <button
             onClick={runMarketAnalysis}
             disabled={isMarketAiLoading}
-            className={`h-12 w-12 flex items-center justify-center rounded-2xl transition-all ${
-              isMarketAiLoading 
-                ? 'bg-primary/10 text-primary animate-spin' 
+            className={`h-12 w-12 flex items-center justify-center rounded-2xl transition-all ${isMarketAiLoading
+                ? 'bg-primary/10 text-primary animate-spin'
                 : 'bg-primary/20 text-primary hover:bg-primary hover:text-black shadow-glow-cyan active:scale-95'
-            }`}
+              }`}
           >
-             <Sparkles className="h-6 w-6" />
+            <Sparkles className="h-6 w-6" />
           </button>
         </div>
 
@@ -841,14 +877,14 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                     onMouseEnter={(_, index) => setActiveSegmentIndex(index)}
                   >
                     {radarData.map((_, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={vibrantColors[index % vibrantColors.length]} 
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={vibrantColors[index % vibrantColors.length]}
                         stroke="rgba(255,255,255,0.05)"
                       />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(0,255,255,0.2)', borderRadius: '12px' }}
                     itemStyle={{ color: '#00ffff', fontWeight: 'bold' }}
                   />
@@ -860,17 +896,17 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <div className="font-mono-tactical text-[10px] uppercase tracking-widest text-white/30">Aguardando dados...</div>
               </div>
             )}
-            
+
             {/* Center Text for Donut - Empty for cleaner look as requested */}
             {radarData.length > 0 && (
               <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-20">
-                 <div className="text-[8px] font-black text-primary/40 uppercase tracking-[0.3em] leading-none mb-1.5">{radarData[activeSegmentIndex]?.brand}</div>
-                 <div className="h-1 w-12 bg-primary/20 rounded-full mx-auto" />
+                <div className="text-[8px] font-black text-primary/40 uppercase tracking-[0.3em] leading-none mb-1.5">{radarData[activeSegmentIndex]?.brand}</div>
+                <div className="h-1 w-12 bg-primary/20 rounded-full mx-auto" />
               </div>
             )}
 
             {/* Marcador flutuante (O "73") - Agora no topo lateral para não obstruir o diagnóstico */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               key={activeSegmentIndex}
@@ -887,48 +923,49 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
 
           <div className="space-y-6 w-full">
-             {marketInsight ? (
-               <motion.div 
-                 initial={{ opacity: 0, x: 20 }}
-                 animate={{ opacity: 1, x: 0 }}
-                 className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md"
-               >
-                 <div className="flex items-center gap-2 mb-3">
-                    <Brain className="h-4 w-4 text-primary" />
-                    <span className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest">Neural Insight</span>
-                 </div>
-                 <div className="text-[12px] text-white/90 leading-relaxed prose-ai-insight max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeRaw]}
-                      components={MarkdownComponents as any}
-                    >
-                      {marketInsight}
-                    </ReactMarkdown>
-                 </div>
-                 <button 
-                   onClick={() => setMarketInsight(null)}
-                   className="mt-4 text-[9px] font-black text-white/40 hover:text-white uppercase tracking-widest"
-                 >
-                   LIMPAR ANÁLISE
-                 </button>
-               </motion.div>
-             ) : (
-               <div className="space-y-3">
-                 {radarData.map((entry, index) => (
-                   <div key={index} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                      <div className="flex items-center gap-3">
-                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: vibrantColors[index % vibrantColors.length] }} />
-                         <span className="text-xs font-bold text-white uppercase tracking-tighter">{entry.brand}</span>
-                      </div>
-                      <span className="font-mono-tactical text-[10px] font-black text-white/50">{entry.units} UN</span>
-                   </div>
-                 ))}
-                 {!isMarketAiLoading && (
-                   <p className="text-[10px] text-white/20 italic text-center pt-2">Clique no ícone de brilho para análise de IA</p>
-                 )}
-               </div>
-             )}
+            {marketInsight ? (
+              <motion.div
+                key="market-insight-neural"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <span className="font-mono-tactical text-[10px] font-black text-primary uppercase tracking-widest">Neural Insight</span>
+                </div>
+                <div className="text-[12px] text-white/90 leading-relaxed prose-ai-insight max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                    components={MarkdownComponents as any}
+                  >
+                    {marketInsight}
+                  </ReactMarkdown>
+                </div>
+                <button
+                  onClick={() => setMarketInsight(null)}
+                  className="mt-4 text-[9px] font-black text-white/40 hover:text-white uppercase tracking-widest"
+                >
+                  LIMPAR ANÁLISE
+                </button>
+              </motion.div>
+            ) : (
+              <div className="space-y-3">
+                {radarData.map((entry, index) => (
+                  <div key={`market-sector-${entry.brand}-${index}`} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: vibrantColors[index % vibrantColors.length] }} />
+                      <span className="text-xs font-bold text-white uppercase tracking-tighter">{entry.brand}</span>
+                    </div>
+                    <span className="font-mono-tactical text-[10px] font-black text-white/50">{entry.units} UN</span>
+                  </div>
+                ))}
+                {!isMarketAiLoading && (
+                  <p className="text-[10px] text-white/20 italic text-center pt-2">Clique no ícone de brilho para análise de IA</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </motion.section>
@@ -946,13 +983,13 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
             DIVERSIDADE: {inStockProducts.length} SKUs
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           {inStockProducts.map((p, i) => {
             const margin = ((p.sale - p.cost) / p.cost) * 100;
             return (
               <motion.article
-                key={p.id}
+                key={`cockpit-prod-${p.id}-${i}`}
                 {...cascade(7 + i)}
                 whileHover={{ y: -8, scale: 1.03 }}
                 className="bg-black-piano neon-blue-border group relative overflow-hidden rounded-[2.5rem] transition-all hover:shadow-[0_30px_60px_rgba(0,0,0,0.8)]"
@@ -960,7 +997,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <div className="relative aspect-[16/10] overflow-hidden bg-black">
                   <img
                     src={
-                      p.image_url || 
+                      p.image_url ||
                       useStore.getState().catalog.find(c => c.sku === p.sku && c.image_url)?.image_url ||
                       useStore.getState().catalog.find(c => c.name === p.name && c.image_url)?.image_url ||
                       "/products/placeholder.png"
@@ -979,7 +1016,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingProductId(p.id);
-                        setCameraOpen(true);
+                        fileInputRef.current?.click();
                       }}
                       className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/20 text-primary ring-2 ring-primary/50 shadow-xl backdrop-blur-xl transition-all hover:bg-primary hover:text-black"
                     >
@@ -992,7 +1029,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                     <div className="text-xl font-black text-white group-hover:text-primary transition-colors tracking-tight">{p.name}</div>
                     <div className="text-xs font-black text-white uppercase tracking-[0.3em] mt-2">{p.spec}</div>
                   </div>
-                  
+
                   <div className="font-mono-tactical flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 text-[11px] font-black text-white ring-1 ring-white/5 group-hover:ring-primary/30 group-hover:text-white transition-all">
                     <Zap className="h-4 w-4 text-primary shadow-glow-cyan animate-pulse" />
                     {p.imei ? `ID ${p.imei.slice(0, 6)}·••••·${p.imei.slice(-4)}` : `LOTE · ID ${p.id.slice(0, 8)}`}
@@ -1023,15 +1060,15 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </motion.section>
 
-      <AIProductInsight 
-        product={selectedProduct} 
-        isOpen={insightOpen} 
-        onClose={() => setInsightOpen(false)} 
+      <AIProductInsight
+        product={selectedProduct}
+        isOpen={insightOpen}
+        onClose={() => setInsightOpen(false)}
       />
 
-      <PredictiveShoppingList 
-        isOpen={shoppingListOpen} 
-        onClose={() => setShoppingListOpen(false)} 
+      <PredictiveShoppingList
+        isOpen={shoppingListOpen}
+        onClose={() => setShoppingListOpen(false)}
       />
 
       <CameraView
@@ -1071,8 +1108,8 @@ const KPICard = ({ icon: Icon, label, value, deltaLabel, deltaValue = 0, tone, o
   const isNeutral = deltaValue === 0;
 
   return (
-    <motion.div 
-      {...rest} 
+    <motion.div
+      {...rest}
       onClick={onClick}
       whileHover={{ y: -5, scale: 1.02 }}
       className={`bg-black-piano neon-blue-border relative overflow-hidden rounded-[2rem] p-4 sm:p-6 shadow-xl hover:shadow-[0_20px_40px_rgba(0,163,255,0.2)] transition-all ${onClick ? 'cursor-pointer active:scale-95' : ''}`}
@@ -1083,19 +1120,17 @@ const KPICard = ({ icon: Icon, label, value, deltaLabel, deltaValue = 0, tone, o
             {label}
           </div>
           <div className="font-mono-tactical mt-4 text-4xl font-black text-white tracking-tighter truncate">{value}</div>
-          <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full ring-1 ${
-            isPositive ? 'text-success bg-success/10 ring-success/30' : 
-            isNegative ? 'text-danger bg-danger/10 ring-danger/30' : 
-            'text-white bg-white/5 ring-white/10'
-          }`}>
+          <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full ring-1 ${isPositive ? 'text-success bg-success/10 ring-success/30' :
+              isNegative ? 'text-danger bg-danger/10 ring-danger/30' :
+                'text-white bg-white/5 ring-white/10'
+            }`}>
             {isPositive ? <TrendingUp className="h-4 w-4" /> : isNegative ? <TrendingDown className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
             <span className="font-mono-tactical text-[12px] font-black">{deltaLabel || '0%'}</span>
           </div>
         </div>
         <div
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-2 shadow-2xl transition-all duration-500 ${
-            tone === "cyan" ? "bg-primary/20 text-primary ring-primary/40 shadow-[0_0_25px_rgba(0,163,255,0.4)]" : "bg-ai/20 text-ai ring-ai/40 shadow-[0_0_25px_rgba(168,85,247,0.4)]"
-          }`}
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-2 shadow-2xl transition-all duration-500 ${tone === "cyan" ? "bg-primary/20 text-primary ring-primary/40 shadow-[0_0_25px_rgba(0,163,255,0.4)]" : "bg-ai/20 text-ai ring-ai/40 shadow-[0_0_25px_rgba(168,85,247,0.4)]"
+            }`}
         >
           <Icon className="h-7 w-7" />
         </div>

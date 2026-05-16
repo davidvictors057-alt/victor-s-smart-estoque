@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { imageService } from '@/services/imageService';
 
 export interface Product {
   id: string;
@@ -163,6 +164,7 @@ interface AppState {
   shoppingListOpen: boolean;
   setShoppingListOpen: (open: boolean) => void;
   reconcileStockAudit: (auditItems: any[]) => Promise<void>;
+  deleteCatalogItem: (name: string, spec: string) => Promise<void>;
 }
 
 export const useStore = create<AppState>()(
@@ -261,7 +263,7 @@ export const useStore = create<AppState>()(
             .eq('client_id', clientId);
           if (error) throw error;
           if (data) set({ catalog: data as CatalogItem[] });
-        } catch (error) { 
+        } catch (error) {
           console.error("❌ [Store] Erro ao buscar catálogo:", error);
         }
       },
@@ -282,12 +284,12 @@ export const useStore = create<AppState>()(
         const currentUser = get().currentUser;
         const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
         const updatedItem = { ...newItem, client_id: clientId, last_updated: new Date().toISOString() };
-        
+
         const exists = catalog.find(c => c.sku === newItem.sku);
         if (exists && exists.name === newItem.name) return;
 
         set((state) => ({
-          catalog: exists 
+          catalog: exists
             ? state.catalog.map(c => c.sku === newItem.sku ? updatedItem : c)
             : [...state.catalog, updatedItem as CatalogItem]
         }));
@@ -303,13 +305,34 @@ export const useStore = create<AppState>()(
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          const updatedItem = { sku, ...updates, client_id: clientId, last_updated: new Date().toISOString() };
+
+          // 0. Buscar item existente para preservar o 'name' caso não tenha sido enviado nas updates
+          const { data: existingItem } = await supabase
+            .from('product_catalog')
+            .select('name')
+            .eq('sku', sku)
+            .single();
+
+          // Tentar pegar o nome do estado local caso não esteja nas updates nem no catálogo
+          const stateName = get().products.find(p => p.sku === sku)?.name;
+
+          // Filtrar apenas campos definidos para evitar sobrescrever com null/undefined
+          const cleanUpdates: any = { 
+            sku, 
+            client_id: clientId, 
+            last_updated: new Date().toISOString(),
+            name: updates.name || existingItem?.name || stateName || 'Produto Sem Nome'
+          };
           
+          Object.entries(updates).forEach(([key, val]) => {
+            if (val !== undefined && key !== 'name') cleanUpdates[key] = val;
+          });
+
           // 1. Atualizar o Catálogo Inteligente
           const { error } = await supabase
             .from('product_catalog')
-            .upsert(updatedItem);
-          
+            .upsert(cleanUpdates);
+
           if (error) throw error;
 
           // 2. PROPAGAÇÃO: Sobrepor informações em todos os produtos do estoque com este SKU
@@ -327,19 +350,19 @@ export const useStore = create<AppState>()(
             .update(productUpdates)
             .eq('sku', sku)
             .eq('status', 'in_stock');
-          
+
           if (pError) console.warn("Aviso: Falha parcial na propagação para o estoque:", pError);
-          
+
           set((state) => {
             const exists = state.catalog.find(c => c.sku === sku);
-            const newCatalog = exists 
-                ? state.catalog.map(c => c.sku === sku ? { ...c, ...updates, last_updated: new Date().toISOString() } : c)
-                : [...state.catalog, updatedItem as CatalogItem];
-            
+            const newCatalog = exists
+              ? state.catalog.map(c => c.sku === sku ? { ...c, ...updates, last_updated: new Date().toISOString() } : c)
+              : [...state.catalog, cleanUpdates as any];
+
             // Atualizar estado local dos produtos para refletir a sobreposição imediatamente
-            const newProducts = state.products.map(p => 
-              (p.sku === sku && p.status === 'in_stock') 
-                ? { ...p, ...productUpdates } 
+            const newProducts = state.products.map(p =>
+              (p.sku === sku && p.status === 'in_stock')
+                ? { ...p, ...productUpdates }
                 : p
             );
 
@@ -348,11 +371,68 @@ export const useStore = create<AppState>()(
               products: newProducts
             };
           });
-          
+
           toast.success("CATÁLOGO E ESTOQUE SINCRONIZADOS");
         } catch (error) {
           console.error("Erro ao atualizar catálogo:", error);
           toast.error("FALHA NA SINCRONIZAÇÃO");
+          throw error;
+        }
+      },
+
+      deleteCatalogItem: async (name, spec) => {
+        const { currentUser } = get();
+        if (!currentUser) return;
+        const clientId = currentUser.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
+
+        try {
+          // 1. Deletar do Catálogo com tratamento explícito de NULL para o spec
+          let catQuery = supabase
+            .from('product_catalog')
+            .delete()
+            .eq('name', name)
+            .eq('client_id', clientId);
+
+          if (spec === null || spec === undefined || spec === 'Geral' || spec === 'Padrão') {
+            // Se for nulo ou os padrões da UI, tentamos deletar ambos para garantir
+            catQuery = catQuery.or(`spec.is.null,spec.eq.Geral,spec.eq.Padrão`);
+          } else {
+            catQuery = catQuery.eq('spec', spec);
+          }
+
+          const { error: catError } = await catQuery;
+          if (catError) throw catError;
+
+          // 2. Deletar Produtos (Estoque) com o mesmo rigor de filtros
+          let prodQuery = supabase
+            .from('products')
+            .delete()
+            .eq('name', name)
+            .eq('client_id', clientId);
+
+          if (spec === null || spec === undefined || spec === 'Geral' || spec === 'Padrão') {
+            prodQuery = prodQuery.or(`spec.is.null,spec.eq.Geral,spec.eq.Padrão`);
+          } else {
+            prodQuery = prodQuery.eq('spec', spec);
+          }
+
+          const { error: prodError } = await prodQuery;
+          if (prodError) throw prodError;
+
+          // 3. Atualizar estado local
+          set((state) => ({
+            catalog: state.catalog.filter(c => !(c.name === name && (c.spec === spec || (!c.spec && !spec)))),
+            products: state.products.filter(p => !(p.name === name && (p.spec === spec || (!p.spec && !spec))))
+          }));
+
+          toast.success("ITEM REMOVIDO DO SISTEMA", {
+            description: `${name} foi totalmente removido.`
+          });
+        } catch (error: any) {
+          console.error("Erro ao deletar item do catálogo:", error);
+          toast.error("ERRO AO REMOVER ITEM", {
+            description: error.message
+          });
           throw error;
         }
       },
@@ -362,14 +442,14 @@ export const useStore = create<AppState>()(
           const { catalog, currentUser } = get();
           const cleanOld = oldSku.trim();
           const cleanNew = newSku.trim();
-          
+
           if (cleanOld === cleanNew) return;
 
           const oldItem = catalog.find(c => c.sku === cleanOld);
           if (!oldItem) throw new Error("Item de origem não encontrado");
 
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          
+
           // 1. Criar novo item no catálogo com o novo SKU
           const newItem = { ...oldItem, sku: cleanNew, last_updated: new Date().toISOString() };
           const { error: insError } = await supabase.from('product_catalog').upsert(newItem);
@@ -380,7 +460,7 @@ export const useStore = create<AppState>()(
             .from('products')
             .update({ sku: cleanNew, updated_at: new Date().toISOString() })
             .eq('sku', cleanOld);
-          
+
           if (pError) console.warn("Erro parcial na atualização de produtos:", pError);
 
           // 3. Deletar SKU antigo do catálogo
@@ -389,7 +469,7 @@ export const useStore = create<AppState>()(
             .delete()
             .eq('sku', cleanOld)
             .eq('client_id', clientId);
-          
+
           if (delError) console.warn("Erro ao deletar SKU antigo:", delError);
 
           // 4. Atualizar estado local
@@ -416,8 +496,8 @@ export const useStore = create<AppState>()(
           if (data) {
             set({ profiles: data });
           }
-        } catch (error) { 
-          console.error("🚨 [Store] Erro ao buscar perfis:", error); 
+        } catch (error) {
+          console.error("🚨 [Store] Erro ao buscar perfis:", error);
         }
       },
 
@@ -425,7 +505,7 @@ export const useStore = create<AppState>()(
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          
+
           // Otimização: Limitamos os campos do produto para evitar carregar base64 pesada
           const { data, error } = await supabase
             .from('movements')
@@ -479,7 +559,7 @@ export const useStore = create<AppState>()(
           const quantity = Number(rawQty) || 1;
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          
+
           // INTELLIGENCE FALLBACK: Se o SKU existe no catálogo, puxar dados faltantes
           if (productData.sku) {
             const cleanSku = productData.sku.trim();
@@ -492,7 +572,7 @@ export const useStore = create<AppState>()(
               if (!productData.spec) productData.spec = catalogItem.spec;
             }
           }
-          
+
           const productsToInsert = Array.from({ length: quantity }).map((_, i) => ({
             ...productData,
             status: 'in_stock',
@@ -504,13 +584,13 @@ export const useStore = create<AppState>()(
           }));
 
           const { data, error } = await supabase.from('products').insert(productsToInsert).select();
-          
+
           if (error) {
             throw error;
           }
 
           if (data) {
-            const movementPromises = data.map((p) => 
+            const movementPromises = data.map((p) =>
               get().addMovement({
                 product_id: p.id,
                 operator_id: currentUser?.id || null,
@@ -519,7 +599,7 @@ export const useStore = create<AppState>()(
               })
             );
             await Promise.all(movementPromises);
-            
+
             if (productData.sku) {
               await get().addToCatalog({
                 sku: productData.sku,
@@ -535,9 +615,9 @@ export const useStore = create<AppState>()(
             toast.success("Estoque atualizado.");
           }
           await get().fetchAll();
-        } catch (error: any) { 
+        } catch (error: any) {
           console.error("🚨 [Store] Falha fatal no addProduct:", error);
-          toast.error(`Erro ao adicionar: ${error.message || "Verifique o console"}`); 
+          toast.error(`Erro ao adicionar: ${error.message || "Verifique o console"}`);
         }
       },
 
@@ -564,10 +644,10 @@ export const useStore = create<AppState>()(
         try {
           const clientId = get().currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
           const movementsWithClient = movements.map(m => ({ ...m, client_id: clientId }));
-          
+
           // Otimização: Se for em lote, não fazemos select pesado com joins
           const query = supabase.from('movements').insert(movementsWithClient);
-          
+
           if (isBulk) {
             const { error } = await query;
             if (error) throw error;
@@ -588,7 +668,7 @@ export const useStore = create<AppState>()(
         try {
           const { error } = await supabase.from('products').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
           if (error) throw error;
-          
+
           const currentProduct = get().products.find(p => p.id === id);
           const finalSku = updates.sku || currentProduct?.sku;
 
@@ -613,7 +693,7 @@ export const useStore = create<AppState>()(
             .from('products')
             .update({ ...updates, updated_at: new Date().toISOString() })
             .in('id', ids);
-          
+
           if (error) throw error;
 
           // Propagação para o catálogo: Identificar todos os SKUs únicos afetados
@@ -621,20 +701,21 @@ export const useStore = create<AppState>()(
           const uniqueSkus = Array.from(new Set(affectedProducts.map(p => p.sku).filter(Boolean)));
 
           if (uniqueSkus.length > 0 && (updates.name || updates.cost !== undefined || updates.sale !== undefined || updates.image_url !== undefined || updates.spec !== undefined)) {
-            const catalogPromises = uniqueSkus.map(sku => 
-              get().updateCatalogItem(sku!, {
-                name: updates.name,
-                cost: updates.cost,
-                sale: updates.sale,
-                image_url: updates.image_url,
-                spec: updates.spec,
-              })
+            const catalogUpdates: any = {};
+            if (updates.name !== undefined) catalogUpdates.name = updates.name;
+            if (updates.cost !== undefined) catalogUpdates.cost = updates.cost;
+            if (updates.sale !== undefined) catalogUpdates.sale = updates.sale;
+            if (updates.image_url !== undefined) catalogUpdates.image_url = updates.image_url;
+            if (updates.spec !== undefined) catalogUpdates.spec = updates.spec;
+
+            const catalogPromises = uniqueSkus.map(sku =>
+              get().updateCatalogItem(sku!, catalogUpdates)
             );
             await Promise.all(catalogPromises);
           }
-          
-          set((state) => ({ 
-            products: state.products.map((p) => ids.includes(p.id) ? { ...p, ...updates } : p) 
+
+          set((state) => ({
+            products: state.products.map((p) => ids.includes(p.id) ? { ...p, ...updates } : p)
           }));
         } catch (error) { console.error(error); throw error; }
       },
@@ -651,8 +732,8 @@ export const useStore = create<AppState>()(
         try {
           const { error } = await supabase.from('products').delete().in('id', ids);
           if (error) throw error;
-          set((state) => ({ 
-            products: state.products.filter(p => !ids.includes(p.id)) 
+          set((state) => ({
+            products: state.products.filter(p => !ids.includes(p.id))
           }));
         } catch (error) { console.error(error); throw error; }
       },
@@ -665,7 +746,7 @@ export const useStore = create<AppState>()(
             .eq('sku', sku)
             .order('created_at', { ascending: false })
             .limit(1);
-          
+
           if (error) throw error;
           return data && data.length > 0 ? { cost: data[0].cost, sale: data[0].sale } : null;
         } catch (error) {
@@ -679,13 +760,13 @@ export const useStore = create<AppState>()(
         try {
           const currentUser = get().currentUser;
           const clientId = currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6';
-          
+
           const allProductsToInsert: any[] = [];
           const catalogToUpsert: Map<string, any> = new Map();
 
           productsList.forEach(item => {
             const qty = Number(item.quantity) || 1;
-            
+
             const cleanProduct = {
               sku: item.sku?.trim() || null,
               name: item.name || 'Produto Sem Nome',
@@ -698,7 +779,7 @@ export const useStore = create<AppState>()(
               image_url: item.image_url || null,
               client_id: clientId
             };
-            
+
             // INTELLIGENCE FALLBACK: Se o SKU existe no catálogo, puxar dados faltantes
             if (cleanProduct.sku) {
               const catalogItem = get().catalog.find(c => c.sku.trim() === cleanProduct.sku);
@@ -708,7 +789,7 @@ export const useStore = create<AppState>()(
                 if (!cleanProduct.cost || cleanProduct.cost === 0) cleanProduct.cost = catalogItem.cost || 0;
                 if (!cleanProduct.sale || cleanProduct.sale === 0) cleanProduct.sale = catalogItem.sale || 0;
               }
-              
+
               catalogToUpsert.set(cleanProduct.sku, {
                 sku: cleanProduct.sku,
                 name: cleanProduct.name,
@@ -738,7 +819,7 @@ export const useStore = create<AppState>()(
             const chunk = allProductsToInsert.slice(i, i + CHUNK_SIZE);
             const { data, error } = await supabase.from('products').insert(chunk).select();
             if (error) {
-              console.error(`Erro ao inserir chunk de produtos (${i}-${i+CHUNK_SIZE}):`, error);
+              console.error(`Erro ao inserir chunk de produtos (${i}-${i + CHUNK_SIZE}):`, error);
               throw error;
             }
             if (data) insertedProducts.push(...data);
@@ -777,11 +858,11 @@ export const useStore = create<AppState>()(
 
             toast.success(`${insertedProducts.length} itens registrados com sucesso!`);
           }
-          
+
         } catch (error: any) {
           console.error("Erro no bulkAddProducts:", error);
           toast.error(`Erro no lote: ${error.message}`);
-          throw error; 
+          throw error;
         } finally {
           set({ isLoading: false });
           // Agora que isLoading é false, o fetchAll vai funcionar
@@ -803,24 +884,24 @@ export const useStore = create<AppState>()(
       addProfile: async (newProfile) => {
         try {
           const { data, error } = await supabase.functions.invoke('manage-team', {
-            body: { 
-              action: 'create', 
-              userData: { 
-                ...newProfile, 
+            body: {
+              action: 'create',
+              userData: {
+                ...newProfile,
                 client_id: get().currentUser?.client_id || '777c9731-88d5-487d-969f-4c26228c34d6' // Default fallback client_id
-              } 
+              }
             }
           });
-          
+
           if (error) throw error;
           if (data?.error) throw new Error(data.error);
 
           toast.success("RECRUTA ADICIONADO", {
             description: `${newProfile.full_name} agora faz parte do squad.`
           });
-          
+
           await get().fetchProfiles();
-        } catch (error: any) { 
+        } catch (error: any) {
           console.error("Erro ao adicionar perfil:", error);
           toast.error("FALHA NO RECRUTAMENTO", {
             description: error.message || "Erro desconhecido na Edge Function."
@@ -840,7 +921,7 @@ export const useStore = create<AppState>()(
 
           set((state) => ({ profiles: state.profiles.filter(p => p.id !== id) }));
           toast.success("MEMBRO REMOVIDO", { description: "Perfil e acesso Auth deletados." });
-        } catch (error: any) { 
+        } catch (error: any) {
           console.error("Erro ao remover perfil:", error);
           // Fallback para delete direto no banco se a função falhar (mas não limpa o Auth)
           await supabase.from('profiles').delete().eq('id', id);
@@ -903,7 +984,7 @@ export const useStore = create<AppState>()(
             .from('movements')
             .delete()
             .eq('client_id', currentUser.client_id);
-          
+
           if (mError) throw mError;
 
           // 2. Delete products and notifications
@@ -918,7 +999,7 @@ export const useStore = create<AppState>()(
 
           localStorage.removeItem('victors-smart-storage');
           window.location.reload();
-        } catch (error) { 
+        } catch (error) {
           console.error("Purge Error:", error);
           throw error; // Re-throw to allow UI to catch it
         }
@@ -932,7 +1013,7 @@ export const useStore = create<AppState>()(
             .from('product_catalog')
             .delete()
             .neq('sku', 'ROOT_SKU_FORCE_DELETE'); // Hack to delete all rows in Supabase without full filter
-          
+
           if (error) throw error;
           set({ catalog: [] });
           toast.success("CATÁLOGO EXPURGADO");
@@ -959,7 +1040,7 @@ export const useStore = create<AppState>()(
             const name = item.name;
             const spec = item.spec || item.description || 'Padrão';
             const finalQty = item.final;
-            
+
             // Match preciso: SKU + Spec (ou Nome + Spec se SKU for nulo)
             const existingWithMatch = currentProducts.filter(p => {
               const skuMatch = sku ? p.sku === sku : true;
@@ -994,11 +1075,11 @@ export const useStore = create<AppState>()(
           if (toAdd.length > 0) {
             await get().bulkAddProducts(toAdd);
           }
-          
+
           if (toDeleteIds.length > 0) {
             await get().deleteProductsBulk(toDeleteIds);
           }
-          
+
           toast.success("ESTOQUE SINCRONIZADO");
         } catch (error: any) {
           console.error("Erro na reconciliação:", error);
@@ -1011,7 +1092,7 @@ export const useStore = create<AppState>()(
 
       getChartData: () => {
         const { movements } = get();
-        
+
         // Helper para formatar data local como YYYY-MM-DD sem fuso horário
         const formatLocalISO = (date: Date) => {
           const y = date.getFullYear();
@@ -1026,18 +1107,18 @@ export const useStore = create<AppState>()(
           const d = new Date(now);
           d.setDate(d.getDate() - (14 - i));
           const dateStr = formatLocalISO(d);
-          
+
           const dayMovements = movements.filter(m => {
             if (!m.timestamp) return false;
-            
+
             // Normalização agressiva para navegadores mobile (Safari/Chrome Mobile)
             // Converte "2026-05-02 15:35:00.524936+00" -> "2026-05-02T15:35:00Z"
             let isoString = m.timestamp.replace(' ', 'T');
             // Remove microssegundos se existirem para evitar bugs de parsing em alguns browsers
             if (isoString.includes('.')) {
-               isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
+              isoString = isoString.split('.')[0] + (isoString.includes('+') ? '+' + isoString.split('+')[1] : 'Z');
             }
-            
+
             const mDate = new Date(isoString);
             return !isNaN(mDate.getTime()) && formatLocalISO(mDate) === dateStr;
           });
@@ -1066,7 +1147,7 @@ export const useStore = create<AppState>()(
           toast.error("LINK NEURAL OFFLINE", { description: "Ative o modo Online Brain para processar." });
           return;
         }
-        
+
         set({ isAiLoading: true });
         try {
           const inStock = products.filter(p => p.status === 'in_stock');
@@ -1077,33 +1158,33 @@ export const useStore = create<AppState>()(
               acc[name].qtd += 1;
               return acc;
             }, {}),
-            movements: movements.slice(0, 50).map(m => ({ 
-              type: m.type, 
+            movements: movements.slice(0, 50).map(m => ({
+              type: m.type,
               item: m.product?.name || 'Item Desconhecido',
-              time: m.timestamp 
+              time: m.timestamp
             })),
             totalValue: inStock.reduce((sum, p) => sum + (p.cost || 0), 0)
           };
-          
+
           const { aiService } = await import('@/services/aiService');
           const analysis = await aiService.getPredictiveAnalysis(data);
-          
+
           if (!analysis || !analysis.text) {
             throw new Error("O Cérebro retornou uma resposta vazia.");
           }
 
-          set({ 
+          set({
             lastAiAnalysis: analysis.text,
             lastAiAnalysisModel: analysis.modelUsed || 'AI-CORE-3.1'
           });
-          
 
-        } catch (error: any) { 
-          console.error("❌ Erro no runPredictiveAnalysis:", error); 
+
+        } catch (error: any) {
+          console.error("❌ Erro no runPredictiveAnalysis:", error);
           toast.error("FALHA NA CONEXÃO NEURAL", { description: error.message || "Erro desconhecido" });
           // Não resetamos o lastAiAnalysis para manter o que estava antes se houver erro
-        } finally { 
-          set({ isAiLoading: false }); 
+        } finally {
+          set({ isAiLoading: false });
         }
       },
 
@@ -1127,9 +1208,9 @@ export const useStore = create<AppState>()(
           const { aiService } = await import('@/services/aiService');
           const context = get().getStrategicContext();
           const response = await aiService.chat(msg, chatHistory.slice(-10), context);
-          set((state) => ({ 
-            chatHistory: [...state.chatHistory, { 
-              role: 'model' as const, content: response.text, meta: { model: response.model, time: response.time } 
+          set((state) => ({
+            chatHistory: [...state.chatHistory, {
+              role: 'model' as const, content: response.text, meta: { model: response.model, time: response.time }
             }].slice(-20) // Keep only last 20 messages
           }));
         } catch (error) { console.error(error); } finally { set({ isAiLoading: false }); }
@@ -1146,7 +1227,7 @@ export const useStore = create<AppState>()(
         movements: state.movements || [],
         appSettings: state.appSettings,
         onlineBrainMode: state.onlineBrainMode,
-        chatHistory: state.chatHistory?.slice(-20) || [], 
+        chatHistory: state.chatHistory?.slice(-20) || [],
         lastAiAnalysis: state.lastAiAnalysis,
         lastAiAnalysisModel: state.lastAiAnalysisModel,
       }),
