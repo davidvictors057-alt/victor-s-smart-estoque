@@ -241,7 +241,7 @@ export const AIProductInsight: React.FC<AIProductInsightProps> = ({
             <div className="max-w-3xl mx-auto grid grid-cols-2 gap-4">
               <Button 
                 variant="outline" 
-                className="border-white/10 bg-white/5 text-white hover:bg-white/10 h-14 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all active:scale-95"
+                className="border-white/10 bg-white/5 text-white hover:bg-white/10 h-14 rounded-2xl transition-all active:scale-95 flex flex-col items-center justify-center"
                 onClick={() => {
                    const text = `Oi, o Oráculo Operacional avisou que o item *${product?.name}* precisa de atenção.
 Giro de 15 dias: ${product?.stock} em estoque.
@@ -249,8 +249,11 @@ Resumo: ${insight.split('\n')[0]}`;
                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                 }}
               >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Compilado p/ Patrão
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] leading-none text-white">
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  <span>COMPILADO P/</span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] leading-none text-white mt-1">COMPRADOR</span>
               </Button>
               <Button 
                 className="bg-blue-600 hover:bg-blue-500 text-white h-14 rounded-2xl shadow-xl shadow-blue-900/20 text-[11px] font-black uppercase tracking-[0.2em] transition-all active:scale-95"

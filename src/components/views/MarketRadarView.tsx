@@ -214,65 +214,84 @@ export const MarketRadarView = () => {
               initial={{ opacity: 0, y: 15 }} 
               animate={{ opacity: 1, y: 0 }} 
               transition={{ delay: idx * 0.05 }} 
-              className="bg-black-piano neon-blue-border rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group"
+              className="bg-black-piano neon-blue-border rounded-[2.5rem] p-5 sm:p-8 shadow-2xl relative overflow-hidden group"
             >
-              <div className="flex items-start justify-between mb-8">
-                <div className="flex gap-5">
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-3xl bg-black border border-white/5 relative">
+              <div className="flex flex-col gap-4 mb-6">
+                {/* Info do Produto */}
+                <div className="flex gap-4 items-start">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-black border border-white/5 relative">
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <img src={item.image_url || "/products/placeholder.png"} className="h-full w-full object-cover opacity-80" />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-black text-white leading-tight mb-1">{item.name}</h3>
-                    <div className="font-mono-tactical text-[11px] text-primary font-black uppercase tracking-widest flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-black text-white leading-tight mb-1 break-words">{item.name}</h3>
+                    <div className="font-mono-tactical text-[10px] text-primary font-black uppercase tracking-widest flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span>SKU: {item.sku || "N/A"}</span>
                       {lastSync && (
                         <span className="flex items-center gap-1 text-white/30 lowercase tracking-normal font-bold">
-                          <Clock className="h-3 w-3" />
+                          <Clock className="h-2.5 w-2.5" />
                           {format(new Date(lastSync), "dd MMM, HH:mm", { locale: ptBR })}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                       <span className="text-[10px] font-black text-white/40 uppercase tracking-tighter">Custo Atual:</span>
-                       <span className="font-mono-tactical text-sm font-black text-white bg-white/5 px-2 py-0.5 rounded-lg border border-white/10">R$ {item.cost || 0}</span>
-                    </div>
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleResearch(item)} 
-                  disabled={isLoading} 
-                  className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all ${
-                    isLoading 
-                      ? 'bg-primary/10 text-primary' 
-                      : 'bg-white/5 text-primary hover:bg-primary hover:text-black shadow-glow-cyan active:scale-90'
-                  }`}
-                >
-                  <RefreshCw className={`h-6 w-6 ${isLoading ? 'animate-spin' : ''}`} />
-                </button>
+
+                {/* Custo Atual e Botão de Varredura */}
+                <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-2xl p-2.5 xs:p-3 gap-2">
+                  <div className="flex items-center gap-1.5 xs:gap-2">
+                    <span className="text-[9px] xs:text-[10px] font-black text-white/40 uppercase tracking-tighter">Custo Atual:</span>
+                    <span className="font-mono-tactical text-[11px] xs:text-xs font-black text-white bg-white/5 px-2 py-0.5 xs:px-2.5 xs:py-1 rounded-lg border border-white/10 whitespace-nowrap">
+                      R$ {item.cost || 0}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => handleResearch(item)} 
+                    disabled={isLoading} 
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] xs:text-xs font-black uppercase tracking-wider transition-all select-none active:scale-95 shrink-0 ${
+                      isLoading 
+                        ? 'bg-primary/10 text-primary border border-primary/20' 
+                        : 'bg-primary text-black hover:bg-primary/95 shadow-glow-cyan'
+                    }`}
+                  >
+                    <RefreshCw className={`h-3 w-3 xs:h-3.5 xs:w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                    <span>{isLoading ? "Varrendo..." : "Varrer"}</span>
+                  </button>
+                </div>
               </div>
 
               {marketData ? (
                 <div className="space-y-6">
                   {/* Grid de Preços Diretos */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/[0.03] rounded-[1.5rem] p-5 border border-white/5 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-3 opacity-10">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="bg-white/[0.03] rounded-[1.5rem] p-3.5 xs:p-4 sm:p-5 border border-white/5 relative overflow-hidden flex flex-col justify-between min-h-[110px]">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
                         <Globe className="h-4 w-4 text-emerald-400" />
                       </div>
-                      <div className="font-mono-tactical text-[9px] font-black text-white/40 uppercase mb-2 tracking-widest">MENOR MERCADO (IA)</div>
-                      <div className="text-2xl font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">R$ {marketData.price.toFixed(2)}</div>
-                      <div className="mt-2 text-[8px] font-black text-emerald-400/70 uppercase tracking-tighter bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 w-fit">
+                      <div>
+                        <div className="font-mono-tactical text-[8px] xs:text-[9px] font-black text-white/40 uppercase mb-1 tracking-widest">MENOR MERCADO (IA)</div>
+                        <div className="flex flex-wrap items-baseline gap-0.5 text-lg xs:text-xl sm:text-2xl font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+                          <span className="text-[10px] font-black text-emerald-400/60 mr-0.5">R$</span>
+                          <span className="font-mono-tactical">{marketData.price.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[7px] xs:text-[8px] font-black text-emerald-400/70 uppercase tracking-tighter bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 w-fit whitespace-nowrap">
                         PREÇO À VISTA / PIX
                       </div>
                     </div>
-                    <div className="bg-primary/5 rounded-[1.5rem] p-5 border border-primary/20 shadow-glow-cyan/10 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-3 opacity-10">
+                    
+                    <div className="bg-primary/5 rounded-[1.5rem] p-3.5 xs:p-4 sm:p-5 border border-primary/20 shadow-glow-cyan/10 relative overflow-hidden flex flex-col justify-between min-h-[110px]">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
                         <TrendingUp className="h-4 w-4 text-primary" />
                       </div>
-                      <div className="font-mono-tactical text-[9px] font-black text-primary/60 uppercase mb-2 tracking-widest">SUGESTÃO DE VENDA</div>
-                      <div className="text-2xl font-black text-primary drop-shadow-[0_0_10px_rgba(0,163,255,0.3)]">R$ {(marketData.price - 5).toFixed(2)}</div>
-                      <div className="mt-2 text-[8px] font-black text-primary/70 uppercase tracking-tighter bg-primary/10 px-2 py-0.5 rounded border border-primary/20 w-fit">
+                      <div>
+                        <div className="font-mono-tactical text-[8px] xs:text-[9px] font-black text-primary/60 uppercase mb-1 tracking-widest">SUGESTÃO DE VENDA</div>
+                        <div className="flex flex-wrap items-baseline gap-0.5 text-lg xs:text-xl sm:text-2xl font-black text-primary drop-shadow-[0_0_10px_rgba(0,163,255,0.3)]">
+                          <span className="text-[10px] font-black text-primary/60 mr-0.5">R$</span>
+                          <span className="font-mono-tactical">{(marketData.price - 5).toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[7px] xs:text-[8px] font-black text-primary/70 uppercase tracking-tighter bg-primary/10 px-2 py-0.5 rounded border border-primary/20 w-fit whitespace-nowrap">
                         - R$ 5,00 VS MERCADO
                       </div>
                     </div>

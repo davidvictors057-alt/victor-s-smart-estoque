@@ -113,7 +113,7 @@ export const SupportTicketsView = () => {
                     <p className="text-[9px] uppercase tracking-widest text-white mb-1 flex items-center gap-1">
                       <Smartphone className="h-3 w-3" /> Contexto
                     </p>
-                    <p className="text-[10px] text-white font-bold">{ticket.context?.screen || 'N/A'}</p>
+                    <p className="text-[10px] text-white font-bold">{String(ticket.context?.screen || 'N/A')}</p>
                   </div>
                   <div className="bg-white/5 p-3 rounded-xl border border-white/5">
                     <p className="text-[9px] uppercase tracking-widest text-white mb-1 flex items-center gap-1">

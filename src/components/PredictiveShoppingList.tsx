@@ -227,15 +227,31 @@ export const PredictiveShoppingList: React.FC<PredictiveShoppingListProps> = ({ 
                             remarkPlugins={[remarkGfm]} 
                             rehypePlugins={[rehypeRaw]}
                             components={{
-                              p: ({children}) => <p className="mb-4 last:mb-0 font-bold text-white leading-relaxed">{children}</p>,
-                              table: ({children}) => (
+                              h1: ({ children }: any) => <h1 className="text-xs font-black text-white mt-5 mb-3 border-b border-primary/30 pb-2 uppercase tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(0,255,240,0.5)] flex items-center gap-2">{children}</h1>,
+                              h2: ({ children }: any) => <h2 className="text-[11px] font-black text-white mt-4 mb-2 uppercase tracking-tighter text-primary drop-shadow-[0_0_6px_rgba(0,255,240,0.4)] flex items-center gap-2">{children}</h2>,
+                              h3: ({ children }: any) => <h3 className="text-[10px] font-black text-primary mt-4 mb-1 uppercase tracking-tighter flex items-center gap-2 drop-shadow-[0_0_4px_rgba(0,255,240,0.3)]">{children}</h3>,
+                              p: ({ children }: any) => <p className="mb-3 last:mb-0 leading-relaxed text-justify text-white/95">{children}</p>,
+                              ul: ({ children }: any) => <ul className="list-none space-y-1.5 my-3 pl-1">{children}</ul>,
+                              li: ({ children }: any) => (
+                                <li className="flex items-start gap-2 text-[10px]">
+                                  <span className="mt-1.5 h-1 w-1 rounded-full bg-primary shrink-0 shadow-[0_0_5px_rgba(0,255,240,0.8)]" />
+                                  <span className="text-white/80">{children}</span>
+                                </li>
+                              ),
+                              strong: ({ children }: any) => <strong className="font-black text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.25)]">{children}</strong>,
+                              table: ({ children }: any) => (
                                 <div className="overflow-x-auto my-4 rounded-xl border border-white/10 bg-black/40">
                                   <table className="w-full text-left text-[10px]">{children}</table>
                                 </div>
                               ),
-                              th: ({children}) => <th className="bg-white/10 p-2 font-black uppercase tracking-widest border-b border-white/10 text-primary">{children}</th>,
-                              td: ({children}) => <td className="p-2 border-b border-white/5 text-white font-bold">{children}</td>,
-                            }}
+                              thead: ({ children }: any) => <thead className="bg-white/5 border-b border-white/10">{children}</thead>,
+                              th: ({ children }: any) => <th className="bg-white/10 p-2 font-black uppercase tracking-widest border-b border-white/10 text-primary">{children}</th>,
+                              td: ({ children }: any) => <td className="p-2 border-b border-white/5 text-white font-bold">{children}</td>,
+                              warn: ({ children }: any) => <span className="font-black text-danger uppercase tracking-tight px-1.5 py-0.5 rounded-sm bg-danger/10 border border-danger/20 inline-block text-[9px] drop-shadow-[0_0_5px_rgba(239,68,68,0.4)] animate-pulse">{children}</span>,
+                              price: ({ children }: any) => <span className="font-mono-tactical font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">{children}</span>,
+                              desc: ({ children }: any) => <span className="text-[10px] font-bold text-primary/80 bg-primary/5 px-1.5 py-0.5 rounded border border-primary/20 mx-1 uppercase tracking-tighter">{children}</span>,
+                              name: ({ children }: any) => <span className="font-black text-white border-b border-white/30 pb-0.5">{children}</span>,
+                            } as any}
                           >
                             {aiInsight}
                           </ReactMarkdown>

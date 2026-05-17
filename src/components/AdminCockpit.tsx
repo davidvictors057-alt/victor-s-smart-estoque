@@ -41,6 +41,7 @@ import {
 import { CameraView } from "./CameraView";
 import { AIProductInsight } from './AIProductInsight';
 import { PredictiveShoppingList } from './PredictiveShoppingList';
+import { ColdStockActionModal } from "./ColdStockActionModal";
 import { Button } from "./ui/button";
 import { useStore, type Product } from "@/store/useStore";
 import ReactMarkdown from "react-markdown";
@@ -103,6 +104,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
   const [tooltipMetric, setTooltipMetric] = useState<string | null>(null);
   const [marketInsight, setMarketInsight] = useState<string | null>(null);
   const [isMarketAiLoading, setIsMarketAiLoading] = useState(false);
+  const [coldStockModalOpen, setColdStockModalOpen] = useState(false);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
   const vibrantColors = ['#22c55e', '#ff4444', '#facc15', '#f97316', '#00ffff', '#00a3ff', '#ec4899', '#8b5cf6', '#f43f5e', '#10b981'];
 
@@ -533,13 +535,14 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
                   <span className="text-sm font-bold text-white">{name.replace(/<.*?>/g, '')}</span>
                   <Button
                     size="sm"
-                    className="bg-success hover:bg-success/80 h-7 text-[9px] font-black rounded-lg"
+                    className="bg-success hover:bg-success/80 h-auto py-1 px-3 rounded-lg flex flex-col items-center justify-center shrink-0"
                     onClick={() => {
                       const text = `🚨 ALERTA RUPTURA ZERO: O item *${name}* está com apenas 1 unidade no estoque. Sugiro reposição imediata.`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                     }}
                   >
-                    AVISAR PATRÃO
+                    <span className="text-[10px] font-black uppercase leading-none tracking-wider text-black">AVISAR</span>
+                    <span className="text-[9px] font-black uppercase leading-none tracking-wider text-black mt-0.5">COMPRADOR</span>
                   </Button>
                 </div>
               ))}
@@ -704,7 +707,7 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
           deltaValue={coldStockCount}
           deltaLabel={`${((coldStockCount / (inStockProducts.length || 1)) * 100).toFixed(0)}%`}
           tone="cyan"
-          onClick={() => onNavigate?.("stock")}
+          onClick={() => setColdStockModalOpen(true)}
         />
         <KPICard
           {...cascade(3)}
@@ -1069,6 +1072,11 @@ export const AdminCockpit = ({ onNavigate }: { onNavigate?: (tab: string) => voi
       <PredictiveShoppingList
         isOpen={shoppingListOpen}
         onClose={() => setShoppingListOpen(false)}
+      />
+
+      <ColdStockActionModal
+        isOpen={coldStockModalOpen}
+        onClose={() => setColdStockModalOpen(false)}
       />
 
       <CameraView

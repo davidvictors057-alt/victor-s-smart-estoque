@@ -165,6 +165,7 @@ interface AppState {
   setShoppingListOpen: (open: boolean) => void;
   reconcileStockAudit: (auditItems: any[]) => Promise<void>;
   deleteCatalogItem: (name: string, spec: string) => Promise<void>;
+  purgeCatalog: () => Promise<void>;
 }
 
 export const useStore = create<AppState>()(

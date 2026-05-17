@@ -115,57 +115,19 @@ export const ConfigView = () => {
             label="Modo de Scanner" 
             sub="Otimização de hardware para baixa luz" 
             hasToggle 
-            defaultChecked={appSettings.scanner_mode !== false}
-            onToggle={(val: boolean) => updateAppSetting("scanner_mode", val)}
+            defaultChecked={appSettings.scanner_mode !== 'false'}
+            onToggle={(val: boolean) => updateAppSetting("scanner_mode", val ? 'true' : 'false')}
           />
           <SettingsItem 
             icon={AppWindow} 
             label="Interface HUD" 
             sub="Exibir notificações críticas em tempo real" 
             hasToggle 
-            defaultChecked={appSettings.hud_notifications !== false}
-            onToggle={(val: boolean) => updateAppSetting("hud_notifications", val)}
+            defaultChecked={appSettings.hud_notifications !== 'false'}
+            onToggle={(val: boolean) => updateAppSetting("hud_notifications", val ? 'true' : 'false')}
           />
         </SettingsGroup>
 
-        <SettingsGroup title="INTEGRAÇÕES TÁTICAS" icon={Zap}>
-          <div className="space-y-4 p-1">
-            <div className="space-y-2">
-              <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white ml-1">Mercado Livre Client ID</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-primary transition-colors">
-                  <AppWindow className="h-4 w-4" />
-                </div>
-                <input 
-                  type="text" 
-                  value={appSettings.ml_client_id || ""}
-                  onChange={(e) => updateAppSetting("ml_client_id", e.target.value)}
-                  placeholder="Seu Client ID do ML"
-                  className="w-full rounded-[1.25rem] bg-white/5 border border-white/10 pl-10 pr-4 py-3 text-sm text-white focus:border-primary focus:outline-none transition-all focus:bg-white/[0.08]"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="font-mono-tactical text-[9px] uppercase tracking-widest text-white ml-1">ML Access Token (Arbitragem)</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-primary transition-colors">
-                  <Shield className="h-4 w-4" />
-                </div>
-                <input 
-                  type="password" 
-                  value={appSettings.ml_access_token || ""}
-                  onChange={(e) => updateAppSetting("ml_access_token", e.target.value)}
-                  placeholder="APP_USR-..."
-                  className="w-full rounded-[1.25rem] bg-white/5 border border-white/10 pl-10 pr-4 py-3 text-sm text-white focus:border-primary focus:outline-none transition-all focus:bg-white/[0.08]"
-                />
-              </div>
-              <p className="font-mono-tactical text-[8px] text-white/50 uppercase tracking-widest mt-1 px-1 leading-relaxed">
-                Necessário para varredura em tempo real de vendedores Platinum/Gold sem limites de busca.
-              </p>
-            </div>
-          </div>
-        </SettingsGroup>
 
         <SettingsGroup title="DADOS & CLOUD" icon={Database}>
           <SettingsItem 
